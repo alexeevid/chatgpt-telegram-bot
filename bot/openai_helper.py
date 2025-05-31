@@ -242,9 +242,11 @@ class OpenAIHelper:
                     logging.warning(f'Error while summarising chat history: {str(e)}. Popping elements instead...')
                     self.conversations[chat_id] = self.conversations[chat_id][-self.config['max_history_size']:]
 
+            user_model = self.user_models.get(chat_id, self.config['model'])
+            model_to_use = user_model if not self.conversations_vision[chat_id] else self.config['vision_model']
             max_tokens_str = 'max_completion_tokens' if self.config['model'] in O_MODELS else 'max_tokens'
             common_args = {
-                'model': self.config['model'] if not self.conversations_vision[chat_id] else self.config['vision_model'],
+                'model': model_to_use,
                 'messages': self.conversations[chat_id],
                 'temperature': self.config['temperature'],
                 'n': self.config['n_choices'],
