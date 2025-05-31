@@ -110,6 +110,7 @@ class OpenAIHelper:
         self.conversations: dict[int: list] = {}  # {chat_id: history}
         self.conversations_vision: dict[int: bool] = {}  # {chat_id: is_vision}
         self.last_updated: dict[int: datetime] = {}  # {chat_id: last_update_timestamp}
+        self.user_models: dict[int, str] = {}  # chat_id -> model name
 
     def get_conversation_stats(self, chat_id: int) -> tuple[int, int]:
         """
