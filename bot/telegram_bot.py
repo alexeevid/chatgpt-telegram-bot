@@ -78,6 +78,25 @@ class ChatGPTTelegramBot:
         )
         await update.message.reply_text(help_text, disable_web_page_preview=True)
 
+    async def set_model(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = update.effective_chat.id
+        bot_language = self.config['bot_language']
+        available_models = ["gpt-3.5-turbo", "gpt-4", "gpt-4o"]
+    
+        if context.args:
+            selected_model = context.args[0]
+            if selected_model not in available_models:
+                await update.message.reply_text(
+                    f"❌ Неверная модель.\nДоступные:\n" + "\n".join(available_models)
+                )
+                return
+    
+            self.openai.user_models[chat_id] = selected_model
+            await update.message.reply_text(f"✅ Модель установлена: *{selected_model}*", parse_mode="Markdown")
+        else:
+            current = self.openai.user_models.get(chat_id, self.config["model"])
+            await update.message.reply_text(f"Текущая модель: *{current}*", parse_mode="Markdown")
+
     async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Returns token usage statistics for current day and month.
