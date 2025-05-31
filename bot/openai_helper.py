@@ -322,33 +322,32 @@ class OpenAIHelper:
         )
         return await self.__handle_function_call(chat_id, response, stream, times + 1, plugins_used)
 
-    async def generate_image(self, prompt: str) -> tuple[str, str]:
-        """
-        Generates an image from the given prompt using DALL·E model.
-        :param prompt: The prompt to send to the model
-        :return: The image URL and the image size
-        """
-        bot_language = self.config['bot_language']
-        try:
-            response = await self.client.images.generate(
-                prompt=prompt,
-                n=1,
-                model=self.config['image_model'],
-                # quality=self.config['image_quality'],
-                style=self.config['image_style'],
-                size=self.config['image_size']
+async def generate_image(self, prompt: str) -> tuple[str, str]:
+    """
+    Генерирует изображение по заданному промпту с использованием модели DALL·E.
+    :param prompt: текстовое описание изображения
+    :return: URL изображения и его размер
+    """
+    bot_language = self.config['bot_language']
+    try:
+        response = await self.client.images.generate(
+            prompt=prompt,
+            n=1,
+            model=self.config['image_model'],
+            size=self.config['image_size']
+        )
+
+        if len(response.data) == 0:
+            logging.error(f'Нет ответа от OpenAI: {str(response)}')
+            raise Exception(
+                f"⚠️ _{localized_text('error', bot_language)}._ "
+                f"⚠️\n{localized_text('try_again', bot_language)}."
             )
 
-            if len(response.data) == 0:
-                logging.error(f'No response from GPT: {str(response)}')
-                raise Exception(
-                    f"⚠️ _{localized_text('error', bot_language)}._ "
-                    f"⚠️\n{localized_text('try_again', bot_language)}."
-                )
+        return response.data[0].url, self.config['image_size']
 
-            return response.data[0].url, self.config['image_size']
-        except Exception as e:
-            raise Exception(f"⚠️ _{localized_text('error', bot_language)}._ ⚠️\n{str(e)}") from e
+    except Exception as e:
+        raise Exception(f"⚠️ _{localized_text('error', bot_language)}._ ⚠️\n{str(e)}") from e
 
     async def generate_speech(self, text: str) -> tuple[any, int]:
         """
