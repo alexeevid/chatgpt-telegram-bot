@@ -96,6 +96,27 @@ class ChatGPTTelegramBot:
         else:
             current = self.openai.user_models.get(chat_id, self.config["model"])
             await update.message.reply_text(f"Текущая модель: *{current}*", parse_mode="Markdown")
+    
+    async def list_models(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Показывает список доступных моделей OpenAI
+        """
+        bot_language = self.config['bot_language']
+        try:
+            models = await self.openai.client.models.list()
+            model_ids = sorted([m.id for m in models.data if m.id.startswith("gpt-")])
+
+            if not model_ids:
+                await update.message.reply_text("Не найдено доступных моделей.")
+                return
+
+            message = "*Доступные модели:*\n" + "\n".join(f"• `{m}`" for m in model_ids)
+            await update.message.reply_text(message, parse_mode="Markdown")
+        except Exception as e:
+            logging.exception(e)
+            await update.message.reply_text(
+                f"Ошибка при получении списка моделей: {str(e)}"
+            )
 
     async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -1083,6 +1104,7 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler('stats', self.stats))
         application.add_handler(CommandHandler('resend', self.resend))
         application.add_handler(CommandHandler('model', self.set_model))
+        application.add_handler(CommandHandler('model_list', self.list_models))
         application.add_handler(CommandHandler(
             'chat', self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP)
         )
