@@ -784,7 +784,8 @@
         "answer_with_chatgpt":"Відповідь за допомогою ChatGPT",
         "ask_chatgpt":"Запитати ChatGPT",
         "loading":"Завантаження...",
-        "function_unavailable_in_inline_mode": "Ця функція недоступна в режимі Inline"
+        "function_unavailable_in_inline_mode": "Ця функція недоступна в режимі Inline",
+        "model_description": "Показать или сменить модель GPT"
     },
     "uz": {
         "help_description": "Yordam xabarini ko'rsatish",
