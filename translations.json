@@ -685,8 +685,9 @@
         "ask_chatgpt":"Спросить ChatGPT",
         "loading":"Загрузка...",
         "function_unavailable_in_inline_mode": "Эта функция недоступна в режиме inline",
-        "analyze_description": "Анализ документа или текста"
-
+        "analyze_description": "Анализ документа или текста",
+        "set_model_description": "Установить модель OpenAI",
+        "list_model_description": "Список доступных моделей"
     },
     "tr": {
         "help_description":"Yardım mesajını göster",
@@ -784,9 +785,7 @@
         "answer_with_chatgpt":"Відповідь за допомогою ChatGPT",
         "ask_chatgpt":"Запитати ChatGPT",
         "loading":"Завантаження...",
-        "function_unavailable_in_inline_mode": "Ця функція недоступна в режимі Inline",
-        "set_model_description": "Установить модель OpenAI",
-        "list_model_description": "Список доступных моделей"
+        "function_unavailable_in_inline_mode": "Ця функція недоступна в режимі Inline"
     },
     "uz": {
         "help_description": "Yordam xabarini ko'rsatish",
