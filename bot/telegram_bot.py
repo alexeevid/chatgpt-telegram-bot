@@ -1196,12 +1196,21 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler('start', self.help))
         application.add_handler(CommandHandler('stats', self.stats))
         application.add_handler(CommandHandler('resend', self.resend))
-        application.add_handler(CommandHandler('set_model', self.set_model))
-        application.add_handler(CommandHandler('list_model', self.list_models))
+ 
         application.add_handler(CallbackQueryHandler(
             self.handle_model_selection,
             pattern=r'^set_model:'  # ловим только наши callback-данные
         ))
+
+        application.add_handler(CallbackQueryHandler(
+            self.handle_callback_inline_query,
+            pattern=r'^inline_'  # ловим только inline-кнопки
+        ))
+
+        
+        application.add_handler(CommandHandler('set_model', self.set_model))
+        application.add_handler(CommandHandler('list_model', self.list_models))
+        
         application.add_handler(CommandHandler(
             'chat', self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP)
         )
@@ -1216,8 +1225,7 @@ class ChatGPTTelegramBot:
         application.add_handler(InlineQueryHandler(self.inline_query, chat_types=[
             constants.ChatType.GROUP, constants.ChatType.SUPERGROUP, constants.ChatType.PRIVATE
         ]))
-        application.add_handler(CallbackQueryHandler(self.handle_callback_inline_query))
-
+     
         application.add_error_handler(error_handler)
 
         application.add_handler(MessageHandler(filters.Document.ALL, self.analyze))
