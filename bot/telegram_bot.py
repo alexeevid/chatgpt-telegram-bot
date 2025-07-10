@@ -1196,8 +1196,8 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler('start', self.help))
         application.add_handler(CommandHandler('stats', self.stats))
         application.add_handler(CommandHandler('resend', self.resend))
-        application.add_handler(CommandHandler('model', self.set_model))
-        application.add_handler(CommandHandler('model_list', self.list_models))
+        application.add_handler(CommandHandler('set_model', self.set_model))
+        application.add_handler(CommandHandler('list_model', self.list_models))
         application.add_handler(CallbackQueryHandler(
             self.handle_model_selection,
             pattern=r'^set_model:'  # ловим только наши callback-данные
