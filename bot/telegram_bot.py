@@ -105,40 +105,57 @@ class ChatGPTTelegramBot:
 
     async def set_model(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
-        Команда /model — выбор модели через кнопки Telegram.
+        Команда /set_model — выбор модели через кнопки Telegram.
         """
         chat_id = update.effective_chat.id
+        # Текущую модель берём либо из пользовательских настроек, либо из конфига OpenAIHelper
         current = self.openai.user_models.get(chat_id, self.openai.config["model"])
-        available_models = ["gpt-3.5-turbo", "gpt-4", "gpt-4o"]
     
-        # Создаём кнопки
+        # 1) Достаём список моделей из API
+        try:
+            resp = await self.openai.client.models.list()
+            # Отфильтровываем только те, что начинаются на "gpt-"
+            available_models = sorted(m.id for m in resp.data if m.id.startswith("gpt-"))
+            if not available_models:
+                await update.message.reply_text("⚠️ Не найдено доступных GPT-моделей.")
+                return
+        except OpenAIError as e:
+            await update.message.reply_text(f"❌ Ошибка при получении моделей: {e}")
+            return
+    
+        # 2) Строим клавиатуру с кнопками
         keyboard = [
-            [InlineKeyboardButton(f"✅ {m}" if m == current else m, callback_data=f"set_model:{m}")]
+            [InlineKeyboardButton(
+                f"✅ {m}" if m == current else m,
+                callback_data=f"set_model:{m}"
+            )]
             for m in available_models
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
     
+        # 3) Отправляем сообщение с кнопками
         await update.message.reply_text(
             f"*Текущая модель:* `{current}`\nВыберите новую:",
             parse_mode="Markdown",
             reply_markup=reply_markup
         )
     
+        
     async def handle_model_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
     
         chat_id = query.message.chat.id
-        data = query.data
+        data = query.data  # будет вида "set_model:gpt-4"
     
         if data.startswith("set_model:"):
-            selected_model = data.split(":")[1]
+            selected_model = data.split(":", 1)[1]
             self.openai.user_models[chat_id] = selected_model
             await query.edit_message_text(
                 text=f"✅ Модель установлена: *{selected_model}*",
                 parse_mode="Markdown"
             )
-        
+    
     async def list_models(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Показывает список доступных моделей OpenAI
@@ -1196,7 +1213,9 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler('start', self.help))
         application.add_handler(CommandHandler('stats', self.stats))
         application.add_handler(CommandHandler('resend', self.resend))
- 
+        application.add_handler(CommandHandler('set_model', self.set_model))
+        application.add_handler(CommandHandler('list_model', self.list_models))
+        
         application.add_handler(CallbackQueryHandler(
             self.handle_model_selection,
             pattern=r'^set_model:'  # ловим только наши callback-данные
@@ -1208,8 +1227,7 @@ class ChatGPTTelegramBot:
         ))
 
         
-        application.add_handler(CommandHandler('set_model', self.set_model))
-        application.add_handler(CommandHandler('list_model', self.list_models))
+
         
         application.add_handler(CommandHandler(
             'chat', self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP)
