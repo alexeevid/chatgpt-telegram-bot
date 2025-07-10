@@ -304,7 +304,7 @@ class ChatGPTTelegramBot:
             user_msg = f"Проанализируй следующий текст:\\n\\n{prompt_text}"
 
             response = await self.openai.client.chat.completions.create(
-                model=self.openai.config[\"model\"],
+                model=self.openai.config["model"],
                 messages=[
                     {\"role\": \"system\", \"content\": system_msg},
                     {\"role\": \"user\", \"content\": user_msg}
