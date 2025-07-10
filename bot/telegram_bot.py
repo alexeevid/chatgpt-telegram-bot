@@ -84,23 +84,40 @@ class ChatGPTTelegramBot:
         await update.message.reply_text(help_text, disable_web_page_preview=True)
 
     async def set_model(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
-        bot_language = self.config['bot_language']
-        available_models = ["gpt-3.5-turbo", "gpt-4", "gpt-4o"]
-    
-        if context.args:
-            selected_model = context.args[0]
-            if selected_model not in available_models:
-                await update.message.reply_text(
-                    f"❌ Неверная модель.\nДоступные:\n" + "\n".join(available_models)
-                )
-                return
-    
-            self.openai.user_models[chat_id] = selected_model
-            await update.message.reply_text(f"✅ Модель установлена: *{selected_model}*", parse_mode="Markdown")
-        else:
-            current = self.openai.user_models.get(chat_id, self.config["model"])
-            await update.message.reply_text(f"Текущая модель: *{current}*", parse_mode="Markdown")
+    """
+    Команда /model — выбор модели через кнопки Telegram.
+    """
+    chat_id = update.effective_chat.id
+    current = self.openai.user_models.get(chat_id, self.config["model"])
+    available_models = ["gpt-3.5-turbo", "gpt-4", "gpt-4o"]
+
+    # Создаём кнопки
+    keyboard = [
+        [InlineKeyboardButton(f"✅ {m}" if m == current else m, callback_data=f"set_model:{m}")]
+        for m in available_models
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        f"*Текущая модель:* `{current}`\nВыберите новую:",
+        parse_mode="Markdown",
+        reply_markup=reply_markup
+    )
+
+    async def handle_model_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    chat_id = query.message.chat.id
+    data = query.data
+
+    if data.startswith("set_model:"):
+        selected_model = data.split(":")[1]
+        self.openai.user_models[chat_id] = selected_model
+        await query.edit_message_text(
+            text=f"✅ Модель установлена: *{selected_model}*",
+            parse_mode="Markdown"
+        )
     
     async def list_models(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
