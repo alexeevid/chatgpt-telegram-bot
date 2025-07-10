@@ -47,6 +47,7 @@
         "ask_chatgpt":"Ask ChatGPT",
         "loading":"Loading...",
         "function_unavailable_in_inline_mode": "This function is unavailable in inline mode"
+        "analyze_description": "Analyze document or text",
     },
     "ar": {
         "help_description":"عرض رسالة المساعدة",
@@ -684,6 +685,8 @@
         "ask_chatgpt":"Спросить ChatGPT",
         "loading":"Загрузка...",
         "function_unavailable_in_inline_mode": "Эта функция недоступна в режиме inline"
+        "analyze_description": "Анализ документа или текста",
+
     },
     "tr": {
         "help_description":"Yardım mesajını göster",
