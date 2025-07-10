@@ -12,3 +12,6 @@ pytube~=15.0.0
 gtts~=2.5.4
 whois~=0.9.27
 Pillow~=11.0.0
+pdfplumber~=0.10.3
+python-docx~=1.1.0
+pandas~=2.2.2
