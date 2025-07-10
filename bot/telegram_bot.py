@@ -65,6 +65,26 @@ class ChatGPTTelegramBot:
         self.last_message = {}
         self.inline_queries_cache = {}
 
+    from telegram.ext import CommandHandler, CallbackQueryHandler
+
+    def register_handlers(self, application):
+        application.add_handler(CommandHandler("help", self.help))
+        application.add_handler(CommandHandler("reset", self.reset))
+        application.add_handler(CommandHandler("set_model", self.set_model))  # <-- ВАЖНО
+        application.add_handler(CommandHandler("list_model", self.list_models))
+        application.add_handler(CommandHandler("analyze", self.analyze))
+        application.add_handler(CommandHandler("stats", self.stats))
+        application.add_handler(CommandHandler("resend", self.resend))
+    
+        if self.config.get('enable_image_generation', False):
+            application.add_handler(CommandHandler("image", self.image))
+    
+        if self.config.get('enable_tts_generation', False):
+            application.add_handler(CommandHandler("tts", self.tts))
+    
+        # 🔘 Обработка кнопок выбора модели
+        application.add_handler(CallbackQueryHandler(self.handle_model_selection, pattern="^set_model:"))
+
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
         Shows the help menu.
