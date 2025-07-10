@@ -785,7 +785,8 @@
         "ask_chatgpt":"Запитати ChatGPT",
         "loading":"Завантаження...",
         "function_unavailable_in_inline_mode": "Ця функція недоступна в режимі Inline",
-        "model_description": "Показать или сменить модель GPT"
+        "set_model_description": "Установить модель GPT",
+        "list_model_description": "Показать доступные модели GPT"
     },
     "uz": {
         "help_description": "Yordam xabarini ko'rsatish",
