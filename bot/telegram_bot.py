@@ -276,53 +276,54 @@ class ChatGPTTelegramBot:
             text=localized_text('reset_done', self.config['bot_language'])
         )
 
+    import io  # убедись, что импорт есть вверху
+
     async def analyze(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Команда /analyze — анализ документа. Работает с PDF, DOCX, TXT, CSV.
         """
         if not await self.check_allowed_and_within_budget(update, context):
             return
-
+    
         if not update.message.document:
             await update.message.reply_text("Пожалуйста, прикрепите файл для анализа (PDF, DOCX, CSV или TXT).")
             return
-
+    
         user_id = update.message.from_user.id
         doc = update.message.document
-
+    
         try:
             telegram_file = await context.bot.get_file(doc.file_id)
             file_buffer = io.BytesIO(await telegram_file.download_as_bytearray())
             raw_text = extract_text(file_buffer, doc.file_name)
-
+    
             if not raw_text.strip():
                 await update.message.reply_text("Не удалось извлечь текст из файла.")
                 return
-
+    
             prompt_text = raw_text[:4000]  # ограничим объём
             system_msg = "You are a professional analyst. Summarize the key points, risks, and recommendations."
-            user_msg = f"Проанализируй следующий текст:\\n\\n{prompt_text}"
-
+            user_msg = f"Проанализируй следующий текст:\n\n{prompt_text}"
+    
             response = await self.openai.client.chat.completions.create(
                 model=self.openai.config["model"],
                 messages=[
-                    {\"role\": \"system\", \"content\": system_msg},
-                    {\"role\": \"user\", \"content\": user_msg}
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_msg}
                 ]
             )
-
+    
             answer = response.choices[0].message.content
             await update.message.reply_text(answer[:4000])
-
-            if hasattr(response, \"usage\") and response.usage:
+    
+            if hasattr(response, "usage") and response.usage:
                 add_chat_request_to_usage_tracker(
                     self.usage, self.config, user_id, response.usage.total_tokens
                 )
-
+    
         except Exception as e:
             logging.exception(e)
-            await update.message.reply_text(f\"Ошибка анализа: {e}\")
-
+            await update.message.reply_text(f"Ошибка анализа: {e}")
     
     async def image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
