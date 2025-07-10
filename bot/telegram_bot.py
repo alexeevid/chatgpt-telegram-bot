@@ -1175,7 +1175,9 @@ class ChatGPTTelegramBot:
 
         application.add_error_handler(error_handler)
 
+        application.add_handler(MessageHandler(filters.Document.ALL, self.analyze))
+
         application.run_polling()
 
-        application.add_handler(MessageHandler(filters.Document.ALL, self.analyze))
+
 
