@@ -108,7 +108,7 @@ class ChatGPTTelegramBot:
         Команда /model — выбор модели через кнопки Telegram.
         """
         chat_id = update.effective_chat.id
-        current = self.openai.user_models.get(chat_id, self.config["model"])
+        current = self.openai.user_models.get(chat_id, self.openai.config["model"])
         available_models = ["gpt-3.5-turbo", "gpt-4", "gpt-4o"]
     
         # Создаём кнопки
