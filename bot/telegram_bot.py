@@ -104,7 +104,7 @@ class ChatGPTTelegramBot:
             reply_markup=reply_markup
         )
     
-        async def handle_model_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_model_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
     
