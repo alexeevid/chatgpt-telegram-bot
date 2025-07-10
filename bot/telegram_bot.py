@@ -15,6 +15,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, \
 
 from pydub import AudioSegment
 from PIL import Image
+from file_utils import extract_text
 
 from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicator, split_into_chunks, \
     edit_message_with_retry, get_stream_cutoff_values, is_allowed, get_remaining_budget, is_admin, is_within_budget, \
@@ -224,6 +225,7 @@ class ChatGPTTelegramBot:
         usage_text = text_current_conversation + text_today + text_month + text_budget
         await update.message.reply_text(usage_text, parse_mode=constants.ParseMode.MARKDOWN)
 
+    
     async def resend(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Resend the last request
@@ -273,6 +275,54 @@ class ChatGPTTelegramBot:
             text=localized_text('reset_done', self.config['bot_language'])
         )
 
+    async def analyze(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Команда /analyze — анализ документа. Работает с PDF, DOCX, TXT, CSV.
+        """
+        if not await self.check_allowed_and_within_budget(update, context):
+            return
+
+        if not update.message.document:
+            await update.message.reply_text("Пожалуйста, прикрепите файл для анализа (PDF, DOCX, CSV или TXT).")
+            return
+
+        user_id = update.message.from_user.id
+        doc = update.message.document
+
+        try:
+            telegram_file = await context.bot.get_file(doc.file_id)
+            file_buffer = io.BytesIO(await telegram_file.download_as_bytearray())
+            raw_text = extract_text(file_buffer, doc.file_name)
+
+            if not raw_text.strip():
+                await update.message.reply_text("Не удалось извлечь текст из файла.")
+                return
+
+            prompt_text = raw_text[:4000]  # ограничим объём
+            system_msg = "You are a professional analyst. Summarize the key points, risks, and recommendations."
+            user_msg = f"Проанализируй следующий текст:\\n\\n{prompt_text}"
+
+            response = await self.openai.client.chat.completions.create(
+                model=self.openai.config[\"model\"],
+                messages=[
+                    {\"role\": \"system\", \"content\": system_msg},
+                    {\"role\": \"user\", \"content\": user_msg}
+                ]
+            )
+
+            answer = response.choices[0].message.content
+            await update.message.reply_text(answer[:4000])
+
+            if hasattr(response, \"usage\") and response.usage:
+                add_chat_request_to_usage_tracker(
+                    self.usage, self.config, user_id, response.usage.total_tokens
+                )
+
+        except Exception as e:
+            logging.exception(e)
+            await update.message.reply_text(f\"Ошибка анализа: {e}\")
+
+    
     async def image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Generates an image for the given prompt using DALL·E APIs
