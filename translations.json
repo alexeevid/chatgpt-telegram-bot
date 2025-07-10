@@ -47,7 +47,9 @@
         "ask_chatgpt":"Ask ChatGPT",
         "loading":"Loading...",
         "function_unavailable_in_inline_mode": "This function is unavailable in inline mode",
-        "analyze_description": "Analyze document or text"
+        "analyze_description": "Analyze document or text",
+        "set_model_description": "Set OpenAI model",
+        "list_model_description": "List available models"
     },
     "ar": {
         "help_description":"عرض رسالة المساعدة",
