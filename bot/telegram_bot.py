@@ -42,7 +42,8 @@ class ChatGPTTelegramBot:
         self.commands = [
             BotCommand(command='help', description=localized_text('help_description', bot_language)),
             BotCommand(command='reset', description=localized_text('reset_description', bot_language)),
-            BotCommand(command='model',   description=localized_text('model_description',  bot_language)),
+            BotCommand(command='set_model',   description=localized_text('set_model_description',  bot_language)),
+            BotCommand(command='list_model',   description=localized_text('list_model_description',  bot_language)),
             BotCommand(command='analyze', description=localized_text('analyze_description', bot_language)),
             BotCommand(command='stats', description=localized_text('stats_description', bot_language)),
             BotCommand(command='resend', description=localized_text('resend_description', bot_language)),
