@@ -113,7 +113,7 @@ async def async_main():
     openai_helper = OpenAIHelper(config=openai_config, plugin_manager=plugin_manager)
     telegram_bot = ChatGPTTelegramBot(config=telegram_config, openai=openai_helper)
 
-    telegram_bot.run()
+    await telegram_bot.run()
 
 if __name__ == '__main__':
     asyncio.run(async_main())
