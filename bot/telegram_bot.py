@@ -87,7 +87,7 @@ class ChatGPTTelegramBot:
     
     async def some_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         async with AsyncSessionLocal() as session:
-            # …работа с session: session.add(...), session.execute(...), await session.commit()
+            pass # …работа с session: session.add(...), session.execute(...), await session.commit()
             
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
