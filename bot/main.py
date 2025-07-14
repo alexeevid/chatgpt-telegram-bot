@@ -6,33 +6,28 @@ from dotenv import load_dotenv
 from plugin_manager import PluginManager
 from openai_helper import OpenAIHelper, default_max_tokens, are_functions_available
 from telegram_bot import ChatGPTTelegramBot
+from db import engine, Base  # подключаем ORM
 
-# Импорт SQLAlchemy движка и базового класса моделей
-from db import engine, Base  # Замените your_db_module на реальный путь к вашему файлу с ORM настройками
-
-
-def main():
-    # Read .env file
-    load_dotenv()
-
-    # Setup logging
+def setup_logging():
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO
     )
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    # Check required env vars
+def load_configurations():
+    load_dotenv()
+
     required_values = ['TELEGRAM_BOT_TOKEN', 'OPENAI_API_KEY']
     missing = [v for v in required_values if os.environ.get(v) is None]
     if missing:
         logging.error(f'Missing in .env: {", ".join(missing)}')
         exit(1)
 
-    # OpenAI config
     model = os.environ.get('OPENAI_MODEL', 'gpt-4o')
     funcs_avail = are_functions_available(model=model)
     max_tok_def = default_max_tokens(model=model)
+
     openai_config = {
         'api_key': os.environ['OPENAI_API_KEY'],
         'show_usage': os.environ.get('SHOW_USAGE', 'false').lower() == 'true',
@@ -69,7 +64,6 @@ def main():
         logging.error(f'ENABLE_FUNCTIONS true but model {model} does not support.')
         exit(1)
 
-    # Telegram config
     telegram_config = {
         'token': os.environ['TELEGRAM_BOT_TOKEN'],
         'admin_user_ids': os.environ.get('ADMIN_USER_IDS', '-'),
@@ -102,19 +96,24 @@ def main():
         'plugins': os.environ.get('PLUGINS', '').split(',')
     }
 
-    # Инициализация базы данных (создание таблиц)
-    async def init_models():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+    return openai_config, telegram_config, plugin_config
 
-    asyncio.run(init_models())
+async def init_models():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-    # Запуск бота
+async def async_main():
+    setup_logging()
+    load_dotenv()
+    openai_config, telegram_config, plugin_config = load_configurations()
+
+    await init_models()
+
     plugin_manager = PluginManager(config=plugin_config)
-    openai_helper   = OpenAIHelper(config=openai_config, plugin_manager=plugin_manager)
-    telegram_bot    = ChatGPTTelegramBot(config=telegram_config, openai=openai_helper)
+    openai_helper = OpenAIHelper(config=openai_config, plugin_manager=plugin_manager)
+    telegram_bot = ChatGPTTelegramBot(config=telegram_config, openai=openai_helper)
+
     telegram_bot.run()
 
-
 if __name__ == '__main__':
-    main()
+    asyncio.run(async_main())
