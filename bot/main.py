@@ -8,7 +8,7 @@ from openai_helper import OpenAIHelper, default_max_tokens, are_functions_availa
 from telegram_bot import ChatGPTTelegramBot
 
 # Импорт SQLAlchemy движка и базового класса моделей
-from your_db_module import engine, Base  # Замените your_db_module на реальный путь к вашему файлу с ORM настройками
+from db import engine, Base  # Замените your_db_module на реальный путь к вашему файлу с ORM настройками
 
 
 def main():
