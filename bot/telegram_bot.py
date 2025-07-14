@@ -23,6 +23,11 @@ from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicato
     cleanup_intermediate_files
 from openai_helper import OpenAIHelper, localized_text
 from usage_tracker import UsageTracker
+from your_db_module import AsyncSessionLocal
+
+async def some_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async with AsyncSessionLocal() as session:
+        # …работа с session: session.add(...), session.execute(...), await session.commit()
 
 
 class ChatGPTTelegramBot:
