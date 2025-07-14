@@ -1198,9 +1198,6 @@ class ChatGPTTelegramBot:
         await application.bot.set_my_commands(self.commands)
 
     async def run(self):
-        """
-        Runs the bot indefinitely until the user presses Ctrl+C
-        """
         application = ApplicationBuilder() \
             .token(self.config['token']) \
             .proxy_url(self.config['proxy']) \
@@ -1208,34 +1205,26 @@ class ChatGPTTelegramBot:
             .post_init(self.post_init) \
             .concurrent_updates(True) \
             .build()
-
-        application.add_handler(CommandHandler('reset', self.reset))
-        application.add_handler(CommandHandler('help', self.help))
-        application.add_handler(CommandHandler('image', self.image))
-        application.add_handler(CommandHandler('analyze', self.analyze))
-        application.add_handler(CommandHandler('tts', self.tts))
-        application.add_handler(CommandHandler('start', self.help))
-        application.add_handler(CommandHandler('stats', self.stats))
-        application.add_handler(CommandHandler('resend', self.resend))
-        application.add_handler(CommandHandler('set_model', self.set_model))
-        application.add_handler(CommandHandler('list_model', self.list_models))
-        
-        application.add_handler(CallbackQueryHandler(
-            self.handle_model_selection,
-            pattern=r'^set_model:'  # ловим только наши callback-данные
-        ))
-
-        application.add_handler(CallbackQueryHandler(
-            self.handle_callback_inline_query,
-            pattern=r'^inline_'  # ловим только inline-кнопки
-        ))
-
+    
+        # — добавляем хендлеры —
+        application.add_handler(CommandHandler("reset", self.reset))
+        application.add_handler(CommandHandler("help", self.help))
+        application.add_handler(CommandHandler("image", self.image))
+        application.add_handler(CommandHandler("analyze", self.analyze))
+        application.add_handler(CommandHandler("tts", self.tts))
+        application.add_handler(CommandHandler("start", self.help))
+        application.add_handler(CommandHandler("stats", self.stats))
+        application.add_handler(CommandHandler("resend", self.resend))
+        application.add_handler(CommandHandler("set_model", self.set_model))
+        application.add_handler(CommandHandler("list_model", self.list_models))
+    
+        application.add_handler(CallbackQueryHandler(self.handle_model_selection, pattern=r'^set_model:'))
+        application.add_handler(CallbackQueryHandler(self.handle_callback_inline_query, pattern=r'^inline_'))
+    
         application.add_handler(CommandHandler(
             'chat', self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP)
         )
-        application.add_handler(MessageHandler(
-            filters.PHOTO | filters.Document.IMAGE,
-            self.vision))
+        application.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, self.vision))
         application.add_handler(MessageHandler(
             filters.AUDIO | filters.VOICE | filters.Document.AUDIO |
             filters.VIDEO | filters.VIDEO_NOTE | filters.Document.VIDEO,
@@ -1244,7 +1233,15 @@ class ChatGPTTelegramBot:
         application.add_handler(InlineQueryHandler(self.inline_query, chat_types=[
             constants.ChatType.GROUP, constants.ChatType.SUPERGROUP, constants.ChatType.PRIVATE
         ]))
-     
-        application.add_error_handler(error_handler)
         application.add_handler(MessageHandler(filters.Document.ALL, self.analyze))
-        application.run_polling()
+    
+        application.add_error_handler(error_handler)
+    
+        # 👍 вместо .run_polling()
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling()
+        await application.updater.wait_until_closed()
+        await application.stop()
+        await application.shutdown()
+    
