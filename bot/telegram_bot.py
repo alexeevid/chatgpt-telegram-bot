@@ -1239,11 +1239,5 @@ class ChatGPTTelegramBot:
     
         application.add_error_handler(error_handler)
     
-        # 🔧 Правильный запуск
-        await application.initialize()
-        await application.start()
-        await application.bot.set_my_commands([
-            BotCommand("help", "Показать справку"),
-            BotCommand("reset", "Сбросить контекст"),
-        ])
-        await application.run_polling()  # 👈 async polling here
+        application.run_polling()
+
