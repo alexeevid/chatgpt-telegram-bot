@@ -25,11 +25,6 @@ from openai_helper import OpenAIHelper, localized_text
 from usage_tracker import UsageTracker
 from your_db_module import AsyncSessionLocal
 
-    async def some_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        async with AsyncSessionLocal() as session:
-            # …работа с session: session.add(...), session.execute(...), await session.commit()
-
-
 class ChatGPTTelegramBot:
     """
     Class representing a ChatGPT Telegram Bot.
@@ -89,7 +84,11 @@ class ChatGPTTelegramBot:
     
         # 🔘 Обработка кнопок выбора модели
         application.add_handler(CallbackQueryHandler(self.handle_model_selection, pattern="^set_model:"))
-
+    
+    async def some_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        async with AsyncSessionLocal() as session:
+            # …работа с session: session.add(...), session.execute(...), await session.commit()
+            
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
         Shows the help menu.
