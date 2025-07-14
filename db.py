@@ -13,3 +13,9 @@ class Document(Base):
     title = Column(String)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
     full_text = Column(Text)
+import os
+from datetime import datetime
+
+from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker, declarative_base
