@@ -1197,7 +1197,7 @@ class ChatGPTTelegramBot:
         await application.bot.set_my_commands(self.group_commands, scope=BotCommandScopeAllGroupChats())
         await application.bot.set_my_commands(self.commands)
 
-    def run(self):
+    async def run(self):
         """
         Runs the bot indefinitely until the user presses Ctrl+C
         """
