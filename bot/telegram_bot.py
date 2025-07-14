@@ -1230,9 +1230,6 @@ class ChatGPTTelegramBot:
             pattern=r'^inline_'  # ловим только inline-кнопки
         ))
 
-        
-
-        
         application.add_handler(CommandHandler(
             'chat', self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP)
         )
@@ -1249,10 +1246,5 @@ class ChatGPTTelegramBot:
         ]))
      
         application.add_error_handler(error_handler)
-
         application.add_handler(MessageHandler(filters.Document.ALL, self.analyze))
-
         application.run_polling()
-
-
-
