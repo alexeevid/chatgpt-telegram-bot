@@ -102,18 +102,18 @@ async def init_models():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-async def async_main():
+def main():
     setup_logging()
     load_dotenv()
     openai_config, telegram_config, plugin_config = load_configurations()
 
-    await init_models()
+    asyncio.run(init_models())  # только модели асинхронные
 
     plugin_manager = PluginManager(config=plugin_config)
     openai_helper = OpenAIHelper(config=openai_config, plugin_manager=plugin_manager)
     telegram_bot = ChatGPTTelegramBot(config=telegram_config, openai=openai_helper)
 
-    await telegram_bot.run()
+    telegram_bot.run()  # теперь просто вызываем
 
 if __name__ == '__main__':
-    asyncio.run(async_main())
+    main()
