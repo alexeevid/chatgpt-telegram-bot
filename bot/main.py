@@ -9,7 +9,8 @@ from plugin_manager import PluginManager
 from openai_helper import OpenAIHelper, default_max_tokens, are_functions_available
 from telegram_bot import ChatGPTTelegramBot
 from db import engine, Base  # подключаем ORM
-
+from telegram.ext import Application  # добавлено
+from telegram import BotCommandScopeAllPrivateChats, BotCommandScopeAllGroupChats  # добавлено
 
 def setup_logging():
     logging.basicConfig(
@@ -17,7 +18,8 @@ def setup_logging():
         level=logging.INFO
     )
     logging.getLogger("httpx").setLevel(logging.WARNING)
-
+    # Уровень логирования SQLAlchemy уменьшен до WARN, чтобы убрать подробные INFO-запросы
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
 def load_configurations():
     # Загружаем переменные окружения из .env
@@ -113,16 +115,26 @@ def main():
     setup_logging()
     openai_config, telegram_config, plugin_config = load_configurations()
 
-    # Инициализируем БД
+    # Инициализируем БД и проверяем соединение
     asyncio.run(init_models())
 
     plugin_manager = PluginManager(config=plugin_config)
     openai_helper = OpenAIHelper(config=openai_config, plugin_manager=plugin_manager)
-    telegram_bot = ChatGPTTelegramBot(config=telegram_config, openai=openai_helper)
+    bot = ChatGPTTelegramBot(config=telegram_config, openai=openai_helper)
 
-    # Запускаем бота и ожидаем завершения
-    telegram_bot.run()
+    async def set_commands():
+        app = Application.builder().token(telegram_config["token"]).build()
 
+        await app.bot.set_my_commands(
+            commands=bot.commands,
+            scope=BotCommandScopeAllPrivateChats(),
+            language_code=telegram_config["bot_language"]
+        )
 
-if __name__ == "__main__":
-    main()
+        await app.bot.set_my_commands(
+            commands=bot.group_commands,
+            scope=BotCommandScopeAllGroupChats(),
+            language_code=telegram_config["bot_language"]
+        )
+
+    asyncio.run(set_commands())
