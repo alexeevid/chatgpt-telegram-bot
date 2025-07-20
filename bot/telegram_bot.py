@@ -1198,12 +1198,29 @@ class ChatGPTTelegramBot:
         await application.bot.set_my_commands(self.commands)
 
     def run(self):
+        # 1. Создаём и устанавливаем новый asyncio-event loop,
+        #    чтобы ApplicationBuilder нашёл его корректно:
+        import asyncio as _asyncio
+        _loop = _asyncio.new_event_loop()
+        _asyncio.set_event_loop(_loop)
+    
+        # 2. Строим Application:
         application = (
             ApplicationBuilder()
             .token(self.config['token'])
-            # при необходимости .proxy(...), .base_url(...), etc.
+            # при необходимости можно добавить .proxy(...), .base_url(...) и пр.
             .build()
         )
+    
+        # 3. Регистрируем все handler’ы (пример):
+        # application.add_handler(CommandHandler("start", self.start_handler))
+        # …
+    
+        # 4. Запускаем polling (блокирующий вызов) на созданном loop:
+        application.run_polling()
+    
+        # 5. После остановки бота закрываем loop:
+        _loop.close()
     
         application.add_handler(CommandHandler('reset', self.reset))
         application.add_handler(CommandHandler('help', self.help))
