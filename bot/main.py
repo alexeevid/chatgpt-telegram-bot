@@ -120,7 +120,7 @@ def main():
     openai_helper = OpenAIHelper(config=openai_config, plugin_manager=plugin_manager)
     telegram_bot = ChatGPTTelegramBot(config=telegram_config, openai=openai_helper)
 
-        # Запускаем бота и ожидаем завершения
+    # Запускаем бота и ожидаем завершения
     telegram_bot.run()
 
 
