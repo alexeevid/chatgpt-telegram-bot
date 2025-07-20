@@ -1199,12 +1199,11 @@ class ChatGPTTelegramBot:
 
     def run(self):
         application = (
-        ApplicationBuilder()
-        .token(self.config['token'])
-        …build()
-    )
-    # регистрация handler’ов
-    application.run_polling()
+            ApplicationBuilder()
+            .token(self.config['token'])
+            # при необходимости .proxy(...), .base_url(...), etc.
+            .build()
+        )
     
         application.add_handler(CommandHandler('reset', self.reset))
         application.add_handler(CommandHandler('help', self.help))
