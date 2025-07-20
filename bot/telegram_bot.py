@@ -1199,38 +1199,43 @@ class ChatGPTTelegramBot:
 
     def run(self):
         import asyncio as _asyncio
-    
-        # 1) Собственный event loop, чтобы ApplicationBuilder мог получить loop
+
+        # 1) Создаём и устанавливаем свой loop
         _loop = _asyncio.new_event_loop()
         _asyncio.set_event_loop(_loop)
-    
+
         # 2) Строим приложение
         application = (
             ApplicationBuilder()
             .token(self.config['token'])
-            # можно .proxy(...), .base_url(...) если нужно
+            # добавьте здесь .proxy(...), .base_url(...) при необходимости
             .build()
         )
-    
-        # 3) Регистрируем все хендлеры — и командные, и message, и inline, и error
+
+        # 3) Регистрируем все ваши handler’ы
+        #    – сначала командные
         self.register_handlers(application)
+        #    – inline-запросы
         application.add_handler(InlineQueryHandler(
             self.inline_query,
-            chat_types=[constants.ChatType.GROUP,
-                        constants.ChatType.SUPERGROUP,
-                        constants.ChatType.PRIVATE]
+            chat_types=[constants.ChatType.PRIVATE,
+                        constants.ChatType.GROUP,
+                        constants.ChatType.SUPERGROUP]
         ))
+        #    – текстовые сообщения (не команды)
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.prompt))
+        #    – документы для анализа
         application.add_handler(MessageHandler(filters.Document.ALL, self.analyze))
+        #    – обработчик ошибок
         application.add_error_handler(error_handler)
-    
-        # 4) Устанавливаем меню команд (BotCommand)
+
+        # 4) Устанавливаем меню команд в Telegram
         _loop.run_until_complete(self.post_init(application))
-    
-        # 5) Запускаем polling (единственный вызов)
+
+        # 5) Запускаем polling (единственный раз)
         application.run_polling()
-    
-        # 6) Закрываем loop при остановке
+
+        # 6) При остановке — закрываем loop
         _loop.close()
     
         application.add_handler(CommandHandler('reset', self.reset))
