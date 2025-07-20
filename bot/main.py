@@ -115,5 +115,9 @@ def main():
 
     telegram_bot.run()  # теперь просто вызываем
 
-if __name__ == '__main__':
-    main()
+import asyncio
+
+if __name__ == "__main__":
+    bot = ChatGPTTelegramBot( ... )
+    asyncio.run(bot.run())
+
