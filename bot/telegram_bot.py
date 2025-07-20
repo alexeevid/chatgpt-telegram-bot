@@ -1199,30 +1199,38 @@ class ChatGPTTelegramBot:
 
     def run(self):
         import asyncio as _asyncio
+    
+        # 1) Собственный event loop, чтобы ApplicationBuilder мог получить loop
         _loop = _asyncio.new_event_loop()
         _asyncio.set_event_loop(_loop)
     
-        # 1. Строим приложение
+        # 2) Строим приложение
         application = (
             ApplicationBuilder()
             .token(self.config['token'])
-            # при необходимости .proxy(...), .base_url(...) и т.п.
+            # можно .proxy(...), .base_url(...) если нужно
             .build()
         )
     
-        # 2. Регистрируем все handler’ы
-        self.register_handlers(application)          # ваше обёртка с CommandHandler-ами
-        application.add_handler(InlineQueryHandler(self.inline_query, ...))
-        application.add_handler(MessageHandler(..., self.prompt))
-        # … остальные application.add_handler …
+        # 3) Регистрируем все хендлеры — и командные, и message, и inline, и error
+        self.register_handlers(application)
+        application.add_handler(InlineQueryHandler(
+            self.inline_query,
+            chat_types=[constants.ChatType.GROUP,
+                        constants.ChatType.SUPERGROUP,
+                        constants.ChatType.PRIVATE]
+        ))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.prompt))
+        application.add_handler(MessageHandler(filters.Document.ALL, self.analyze))
+        application.add_error_handler(error_handler)
     
-        # 3. Устанавливаем команды (меню) у бота
+        # 4) Устанавливаем меню команд (BotCommand)
         _loop.run_until_complete(self.post_init(application))
     
-        # 4. Стартуем polling
+        # 5) Запускаем polling (единственный вызов)
         application.run_polling()
     
-        # 5. Закрываем loop при остановке
+        # 6) Закрываем loop при остановке
         _loop.close()
     
         application.add_handler(CommandHandler('reset', self.reset))
