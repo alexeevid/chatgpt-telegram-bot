@@ -120,9 +120,9 @@ def main():
     openai_helper = OpenAIHelper(config=openai_config, plugin_manager=plugin_manager)
     telegram_bot = ChatGPTTelegramBot(config=telegram_config, openai=openai_helper)
 
-    # Запускаем бота (blocking)
-    telegram_bot.run()
+        # Запускаем бота и ожидаем завершения
+    asyncio.run(telegram_bot.run())
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" == "__main__":
     main()
