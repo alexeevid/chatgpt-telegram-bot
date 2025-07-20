@@ -98,19 +98,21 @@ class ChatGPTTelegramBot:
             
     from telegram import Update
     from telegram.ext import ContextTypes
-    
+
+    from utils import get_remaining_budget     # убедитесь, что импорт есть наверху
+
     async def balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_id = update.effective_user.id
-        username = update.effective_user.username or update.effective_user.first_name
-    
-        # Получаем остаток бюджета
-        budget = get_remaining_budget(user_id)
-    
-        if budget is None:
-            await update.message.reply_text(f"@{username}, для вас пока не установлен бюджет.")
-        else:
-            await update.message.reply_text(f"@{username}, ваш остаток бюджета: {budget:.2f} $")
-    
+        remaining = get_remaining_budget(
+            self.config,
+            self.usage,
+            update,            # ← передаём текущий update
+            is_inline=False
+        )
+        await update.message.reply_text(
+            f"💰 Ваш остаток бюджета: ${remaining:.2f}",
+            parse_mode=constants.ParseMode.MARKDOWN
+        )
+        
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
         Shows the help menu.
