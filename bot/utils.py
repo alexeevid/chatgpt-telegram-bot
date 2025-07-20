@@ -368,3 +368,8 @@ def encode_image(fileobj):
 def decode_image(imgbase64):
     image = imgbase64[len('data:image/jpeg;base64,'):]
     return base64.b64decode(image)
+from telegram import Update
+
+def is_within_budget(config, usage, update: Update, is_inline=False) -> bool:
+    remaining = get_remaining_budget(config, usage, update, is_inline=is_inline)
+    return remaining > 0
