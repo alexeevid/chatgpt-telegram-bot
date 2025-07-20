@@ -47,7 +47,7 @@ class ChatGPTTelegramBot:
             BotCommand(command='analyze', description=localized_text('analyze_description', bot_language)),
             BotCommand(command='stats', description=localized_text('stats_description', bot_language)),
             BotCommand(command='resend', description=localized_text('resend_description', bot_language)),
-            
+            BotCommand(command='balance', description=localized_text('balance_description', bot_language)),
         ]
         # If imaging is enabled, add the "image" command to the list
         if self.config.get('enable_image_generation', False):
@@ -78,6 +78,7 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler("analyze", self.analyze))
         application.add_handler(CommandHandler("stats", self.stats))
         application.add_handler(CommandHandler("resend", self.resend))
+        application.add_handler(CommandHandler("balance", self.balance))
      
         # В группах запускаем чат по /chat
         application.add_handler(CommandHandler("chat", self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
@@ -95,6 +96,16 @@ class ChatGPTTelegramBot:
         async with AsyncSessionLocal() as session:
             pass # …работа с session: session.add(...), session.execute(...), await session.commit()
             
+    async def balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        # get_remaining_budget хранится в utils
+        from utils import get_remaining_budget
+        remaining = get_remaining_budget(self.config, self.usage, update)
+        await update.message.reply_text(
+            f"Ваш остаток бюджета: ${remaining:.2f}",
+            parse_mode=constants.ParseMode.MARKDOWN
+        )
+    
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
         Shows the help menu.
