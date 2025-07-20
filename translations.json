@@ -49,7 +49,8 @@
         "function_unavailable_in_inline_mode": "This function is unavailable in inline mode",
         "analyze_description": "Analyze document or text",
         "set_model_description": "Set OpenAI model",
-        "list_model_description": "List available models"
+        "list_model_description": "List available models",
+        "balance_description": "Show remaining budget"
     },
     "ar": {
         "help_description":"عرض رسالة المساعدة",
@@ -689,7 +690,8 @@
         "function_unavailable_in_inline_mode": "Эта функция недоступна в режиме inline",
         "analyze_description": "Анализ документа или текста",
         "set_model_description": "Установить модель OpenAI",
-        "list_model_description": "Список доступных моделей"
+        "list_model_description": "Список доступных моделей",
+        "balance_description": "Показать остаток бюджета"
     },
     "tr": {
         "help_description":"Yardım mesajını göster",
