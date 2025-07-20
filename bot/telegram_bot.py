@@ -96,15 +96,20 @@ class ChatGPTTelegramBot:
         async with AsyncSessionLocal() as session:
             pass # …работа с session: session.add(...), session.execute(...), await session.commit()
             
+    from telegram import Update
+    from telegram.ext import ContextTypes
+    
     async def balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
-        # get_remaining_budget хранится в utils
-        from utils import get_remaining_budget
-        remaining = get_remaining_budget(self.config, self.usage, update)
-        await update.message.reply_text(
-            f"Ваш остаток бюджета: ${remaining:.2f}",
-            parse_mode=constants.ParseMode.MARKDOWN
-        )
+        username = update.effective_user.username or update.effective_user.first_name
+    
+        # Получаем остаток бюджета
+        budget = get_remaining_budget(user_id)
+    
+        if budget is None:
+            await update.message.reply_text(f"@{username}, для вас пока не установлен бюджет.")
+        else:
+            await update.message.reply_text(f"@{username}, ваш остаток бюджета: {budget:.2f} $")
     
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
