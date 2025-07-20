@@ -1197,16 +1197,14 @@ class ChatGPTTelegramBot:
         await application.bot.set_my_commands(self.group_commands, scope=BotCommandScopeAllGroupChats())
         await application.bot.set_my_commands(self.commands)
 
-    async def run(self):
+    def run(self):
         application = (
-            ApplicationBuilder()
-            .token(self.config['token'])
-            .proxy_url(self.config['proxy'])
-            .get_updates_proxy_url(self.config['proxy'])
-            .post_init(self.post_init)
-            .concurrent_updates(True)
-            .build()
-        )
+        ApplicationBuilder()
+        .token(self.config['token'])
+        …build()
+    )
+    # регистрация handler’ов
+    application.run_polling()
     
         application.add_handler(CommandHandler('reset', self.reset))
         application.add_handler(CommandHandler('help', self.help))
