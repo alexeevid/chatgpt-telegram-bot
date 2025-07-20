@@ -44,17 +44,6 @@ async def is_user_in_group(update: Update, context: CallbackContext, user_id: in
     except Exception as e:
         raise e
 
-def get_remaining_budget(config: dict, usage: dict, update) -> float:
-    """
-    Возвращает оставшийся бюджет для текущего чата/пользователя.
-    """
-    chat_id = update.effective_chat.id
-    used = usage.get(chat_id, 0.0)          # сколько потрачено
-    budget = config.get('guest_budget')     # или свойство config['user_budgets'] 
-    # если вы храните персональные бюджеты в config['user_budgets'], 
-    # то надо достать budget = config['user_budgets'][str(chat_id)] 
-    return max(0.0, budget - used)
-
 def get_thread_id(update: Update) -> int | None:
     """
     Gets the message thread id for the update, if any
@@ -62,7 +51,6 @@ def get_thread_id(update: Update) -> int | None:
     if update.effective_message and update.effective_message.is_topic_message:
         return update.effective_message.message_thread_id
     return None
-
 
 def get_stream_cutoff_values(update: Update, content: str) -> int:
     """
