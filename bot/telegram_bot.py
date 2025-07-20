@@ -67,30 +67,29 @@ class ChatGPTTelegramBot:
 
     from telegram.ext import CommandHandler, CallbackQueryHandler
 
-    def register_handlers(self, application):
-         # Обработчик /start — то же, что и /help
-         application.add_handler(CommandHandler("start", self.help))
- 
-         application.add_handler(CommandHandler("help", self.help))
-         application.add_handler(CommandHandler("reset", self.reset))
-         application.add_handler(CommandHandler("set_model", self.set_model))
-         application.add_handler(CommandHandler("list_model", self.list_models))
-         application.add_handler(CommandHandler("analyze", self.analyze))
-         application.add_handler(CommandHandler("stats", self.stats))
-         application.add_handler(CommandHandler("resend", self.resend))
- 
-         # В группах запускаем чат по /chat
-         application.add_handler(CommandHandler("chat", self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
- 
-         if self.config.get('enable_image_generation', False):
-             application.add_handler(CommandHandler("image", self.image))
-
-         if self.config.get('enable_tts_generation', False):
-             application.add_handler(CommandHandler("tts", self.tts))
-
-         # 🔘 Обработка кнопок выбора модели
-         application.add_handler(CallbackQueryHandler(self.handle_model_selection, pattern="^set_model:"))
-
+        def register_handlers(self, application):
+             # Обработчик /start — то же, что и /help
+             application.add_handler(CommandHandler("start", self.help))
+     
+             application.add_handler(CommandHandler("help", self.help))
+             application.add_handler(CommandHandler("reset", self.reset))
+             application.add_handler(CommandHandler("set_model", self.set_model))
+             application.add_handler(CommandHandler("list_model", self.list_models))
+             application.add_handler(CommandHandler("analyze", self.analyze))
+             application.add_handler(CommandHandler("stats", self.stats))
+             application.add_handler(CommandHandler("resend", self.resend))
+     
+             # В группах запускаем чат по /chat
+             application.add_handler(CommandHandler("chat", self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
+     
+             if self.config.get('enable_image_generation', False):
+                 application.add_handler(CommandHandler("image", self.image))
+    
+             if self.config.get('enable_tts_generation', False):
+                 application.add_handler(CommandHandler("tts", self.tts))
+    
+             # 🔘 Обработка кнопок выбора модели
+             application.add_handler(CallbackQueryHandler(self.handle_model_selection, pattern="^set_model:"))
     
     async def some_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         async with AsyncSessionLocal() as session:
