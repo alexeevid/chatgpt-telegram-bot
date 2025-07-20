@@ -67,7 +67,7 @@ class ChatGPTTelegramBot:
 
     from telegram.ext import CommandHandler, CallbackQueryHandler
 
-     def register_handlers(self, application):
+    def register_handlers(self, application):
          # Обработчик /start — то же, что и /help
          application.add_handler(CommandHandler("start", self.help))
  
