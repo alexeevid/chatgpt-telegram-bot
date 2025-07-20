@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import logging
 import os
 import asyncio
@@ -15,7 +17,9 @@ def setup_logging():
     )
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
+
 def load_configurations():
+    # Загружаем переменные окружения из .env
     load_dotenv()
 
     required_values = ['TELEGRAM_BOT_TOKEN', 'OPENAI_API_KEY']
@@ -98,26 +102,26 @@ def load_configurations():
 
     return openai_config, telegram_config, plugin_config
 
+
 async def init_models():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-def main():
+
+async def main():
     setup_logging()
-    load_dotenv()
     openai_config, telegram_config, plugin_config = load_configurations()
 
-    asyncio.run(init_models())  # только модели асинхронные
+    # Инициализируем БД
+    await init_models()
 
     plugin_manager = PluginManager(config=plugin_config)
     openai_helper = OpenAIHelper(config=openai_config, plugin_manager=plugin_manager)
     telegram_bot = ChatGPTTelegramBot(config=telegram_config, openai=openai_helper)
 
-    telegram_bot.run()  # теперь просто вызываем
+    # Запускаем бота
+    await telegram_bot.run()
 
-import asyncio
 
 if __name__ == "__main__":
-    bot = ChatGPTTelegramBot( ... )
-    asyncio.run(bot.run())
-
+    asyncio.run(main())
