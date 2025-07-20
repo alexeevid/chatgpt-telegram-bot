@@ -121,7 +121,7 @@ def main():
     telegram_bot = ChatGPTTelegramBot(config=telegram_config, openai=openai_helper)
 
         # Запускаем бота и ожидаем завершения
-    asyncio.run(telegram_bot.run())
+    telegram_bot.run()
 
 
 if __name__ == "__main__":
