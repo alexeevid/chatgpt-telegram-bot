@@ -138,3 +138,9 @@ def main():
         )
 
     asyncio.run(set_commands())
+
+    # Добавим запуск самого бота после установки команд
+    bot.run()
+
+if __name__ == '__main__':
+    main()
