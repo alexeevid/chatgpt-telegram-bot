@@ -45,9 +45,9 @@ class ChatGPTTelegramBot:
             BotCommand(command='set_model',   description=localized_text('set_model_description',  bot_language)),
             BotCommand(command='list_model',   description=localized_text('list_model_description',  bot_language)),
             BotCommand(command='analyze', description=localized_text('analyze_description', bot_language)),
-            BotCommand(command='stats', description=localized_text('stats_description', bot_language)),
+            #BotCommand(command='stats', description=localized_text('stats_description', bot_language)),
             BotCommand(command='resend', description=localized_text('resend_description', bot_language)),
-            BotCommand(command='balance', description=localized_text('balance_description', bot_language)),
+            #BotCommand(command='balance', description=localized_text('balance_description', bot_language)),
         ]
         # If imaging is enabled, add the "image" command to the list
         if self.config.get('enable_image_generation', False):
@@ -79,6 +79,7 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler("stats", self.stats))
         application.add_handler(CommandHandler("resend", self.resend))
         application.add_handler(CommandHandler("balance", self.balance))
+        application.add_handler(CommandHandler("kb", self.show_knowledge_base))
      
         # В группах запускаем чат по /chat
         application.add_handler(CommandHandler("chat", self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
@@ -100,6 +101,25 @@ class ChatGPTTelegramBot:
     from telegram.ext import ContextTypes
 
     from utils import get_remaining_budget     # убедитесь, что импорт есть наверху
+
+    from file_utils import list_knowledge_base
+
+    async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            data = list_knowledge_base()
+            items = data.get('_embedded', {}).get('items', [])
+            if not items:
+                await update.message.reply_text("База знаний пуста.")
+                return
+    
+            text = "📚 *База Знаний:*\n\n"
+            for item in items:
+                name = item['name']
+                is_folder = item['type'] == 'dir'
+                text += f"📁 {name}\n" if is_folder else f"📄 {name}\n"
+            await update.message.reply_text(text, parse_mode='Markdown')
+        except Exception as e:
+            await update.message.reply_text(f"Ошибка при загрузке базы знаний:\n{e}")
 
     async def balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         remaining = get_remaining_budget(
