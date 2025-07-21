@@ -1,6 +1,18 @@
 import io
 import pandas as pd
+import os
+import requests
 
+YANDEX_DISK_API = 'https://cloud-api.yandex.net/v1/disk/resources'
+
+def list_knowledge_base():
+    token = os.getenv("YANDEX_TOKEN")
+    path = os.getenv("YANDEX_KB_PATH", "/База Знаний")
+    headers = {"Authorization": f"OAuth {token}"}
+    params = {"path": path}
+    response = requests.get(YANDEX_DISK_API, headers=headers, params=params)
+    response.raise_for_status()
+    return response.json()  # Возвращает структуру папки
 def extract_text(fileobj: io.BytesIO, filename: str) -> str:
     filename = filename.lower()
 
