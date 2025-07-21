@@ -1305,6 +1305,7 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler('resend', self.resend))
         application.add_handler(CommandHandler('set_model', self.set_model))
         application.add_handler(CommandHandler('list_model', self.list_models))
+        application.add_handler(CommandHandler('kb', self.show_knowledge_base))
     
         application.add_handler(CallbackQueryHandler(self.handle_model_selection, pattern=r'^set_model:'))
         application.add_handler(CallbackQueryHandler(self.handle_callback_inline_query, pattern=r'^inline_'))
