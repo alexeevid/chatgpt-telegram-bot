@@ -50,7 +50,8 @@
         "analyze_description": "Analyze document or text",
         "set_model_description": "Set OpenAI model",
         "list_model_description": "List available models",
-        "balance_description": "Show remaining budget"
+        "balance_description": "Show remaining budget",
+        "kb_description": "Show KB"
     },
     "ar": {
         "help_description":"عرض رسالة المساعدة",
@@ -691,7 +692,8 @@
         "analyze_description": "Анализ документа или текста",
         "set_model_description": "Установить модель OpenAI",
         "list_model_description": "Список доступных моделей",
-        "balance_description": "Показать остаток бюджета"
+        "balance_description": "Показать остаток бюджета",
+        "kb_description": "Просмотр базы знаний"
     },
     "tr": {
         "help_description":"Yardım mesajını göster",
