@@ -64,6 +64,9 @@ class ChatGPTTelegramBot:
         self.usage = {}
         self.last_message = {}
         self.inline_queries_cache = {}
+        
+        # Инициализация выбранных пользователем файлов из Базы Знаний
+        self.selected_documents = {}
 
     from telegram.ext import CommandHandler, CallbackQueryHandler
 
@@ -362,20 +365,29 @@ class ChatGPTTelegramBot:
 
     async def reset(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
-        Resets the conversation.
+        Resets the conversation and clears selected knowledge base files.
         """
         if not await is_allowed(self.config, update, context):
             logging.warning(f'User {update.message.from_user.name} (id: {update.message.from_user.id}) '
                             'is not allowed to reset the conversation')
             await self.send_disallowed_message(update, context)
             return
-
+    
         logging.info(f'Resetting the conversation for user {update.message.from_user.name} '
                      f'(id: {update.message.from_user.id})...')
-
+    
         chat_id = update.effective_chat.id
+    
+        # Сброс истории OpenAI
         reset_content = message_text(update.message)
         self.openai.reset_chat_history(chat_id=chat_id, content=reset_content)
+    
+        # Сброс выбранных файлов из базы знаний
+        if hasattr(self, "selected_documents"):
+            self.selected_documents[chat_id] = []
+        else:
+            self.selected_documents = {chat_id: []}
+    
         await update.effective_message.reply_text(
             message_thread_id=get_thread_id(update),
             text=localized_text('reset_done', self.config['bot_language'])
