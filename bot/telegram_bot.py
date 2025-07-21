@@ -4,7 +4,8 @@ import asyncio
 import logging
 import os
 import io
-
+# telegram_bot.py  (самый верх)
+from file_utils import extract_text, list_knowledge_base   # ← добавляем сюда
 from uuid import uuid4
 from telegram import BotCommandScopeAllGroupChats, Update, constants
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResultArticle
@@ -106,7 +107,7 @@ class ChatGPTTelegramBot:
 
     from utils import get_remaining_budget     # убедитесь, что импорт есть наверху
 
-    from file_utils import list_knowledge_base
+    #from file_utils import list_knowledge_base
 
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
