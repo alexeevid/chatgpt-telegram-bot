@@ -18,3 +18,4 @@ pandas~=2.2.2
 sqlalchemy[asyncio]
 alembic
 asyncpg
+requests
