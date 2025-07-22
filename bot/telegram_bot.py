@@ -74,7 +74,6 @@ class ChatGPTTelegramBot:
         # Инициализация выбранных пользователем файлов из Базы Знаний
         self.selected_documents = {}
 
-    from telegram.ext import CommandHandler, CallbackQueryHandler
     from telegram.ext import (
         CommandHandler,
         CallbackQueryHandler,
@@ -82,7 +81,6 @@ class ChatGPTTelegramBot:
         MessageHandler,
         filters,
     )
-    from telegram import constants
 
     def register_handlers(self, application):
         # 📌 Команды
@@ -1088,35 +1086,35 @@ class ChatGPTTelegramBot:
                 text=f"{localized_text('chat_fail', self.config['bot_language'])} {str(e)}",
                 parse_mode=constants.ParseMode.MARKDOWN
             )
+    
+    async def load_document_content(self, doc_name: str) -> str:
+        """
+        Загружает содержимое документа из Яндекс.Диска.
+        """
+        import requests
 
-        async def load_document_content(self, doc_name: str) -> str:
-            """
-            Загружает содержимое документа из Яндекс.Диска.
-            """
-            import requests
-    
-            token = os.getenv("YANDEX_TOKEN")
-            path = os.getenv("YANDEX_KB_PATH", "/База Знаний") + "/" + doc_name
-            headers = {"Authorization": f"OAuth {token}"}
-    
-            # Получаем временную ссылку
-            meta = requests.get(
-                "https://cloud-api.yandex.net/v1/disk/resources/download",
-                headers=headers,
-                params={"path": path}
-            )
-            meta.raise_for_status()
-            href = meta.json()["href"]
-    
-            # Скачиваем файл
-            file_response = requests.get(href)
-            file_response.raise_for_status()
-    
-            from io import BytesIO
-            from file_utils import extract_text
-    
-            return extract_text(BytesIO(file_response.content), doc_name)
-    
+        token = os.getenv("YANDEX_TOKEN")
+        path = os.getenv("YANDEX_KB_PATH", "/База Знаний") + "/" + doc_name
+        headers = {"Authorization": f"OAuth {token}"}
+
+        # Получаем временную ссылку
+        meta = requests.get(
+            "https://cloud-api.yandex.net/v1/disk/resources/download",
+            headers=headers,
+            params={"path": path}
+        )
+        meta.raise_for_status()
+        href = meta.json()["href"]
+
+        # Скачиваем файл
+        file_response = requests.get(href)
+        file_response.raise_for_status()
+
+        from io import BytesIO
+        from file_utils import extract_text
+
+        return extract_text(BytesIO(file_response.content), doc_name)
+
     async def inline_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
         Handle the inline query. This is run when you type: @botusername <query>
