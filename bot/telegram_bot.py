@@ -110,10 +110,9 @@ class ChatGPTTelegramBot:
     #from file_utils import list_knowledge_base
 
     # Вверху файла (рядом с остальными импортами)
-    from html import escape as h
-    from telegram import constants
+    from html import escape
     from telegram.error import BadRequest
-    from file_utils import list_knowledge_base  # важно не забыть!
+    from file_utils import list_knowledge_base
     
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
@@ -123,21 +122,21 @@ class ChatGPTTelegramBot:
                 await update.message.reply_text("База знаний пуста.")
                 return
     
-            header = "📚 <b>База знаний</b>\n\n"
-            lines = []
-            for item in items:
-                icon = "📁" if item.get("type") == "dir" else "📄"
-                # обязательно экранируем имя
-                name = h(item.get("name", ""))
-                lines.append(f"{icon} {name}")
+            def h(text: str) -> str:
+                return escape(text, quote=True)
     
-            text = header + "\n".join(lines)
+            parts = ["<b>📚 База Знаний:</b>", ""]
+            for item in items:
+                icon = "📁" if item["type"] == "dir" else "📄"
+                parts.append(f"{icon} {h(item['name'])}")
+    
+            html_text = "\n".join(parts)
     
             try:
-                await update.message.reply_text(text, parse_mode=constants.ParseMode.HTML)
+                await update.message.reply_text(html_text, parse_mode="HTML")
             except BadRequest:
-                # На всякий случай fallback без разметки
-                await update.message.reply_text("База знаний:\n\n" + "\n".join(lines))
+                # fallback без форматирования
+                await update.message.reply_text("📚 База Знаний:\n\n" + "\n".join(parts[2:]))
     
         except Exception as e:
             await update.message.reply_text(f"Ошибка при загрузке базы знаний:\n{e}")
