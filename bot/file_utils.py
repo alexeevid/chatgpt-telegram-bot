@@ -10,9 +10,18 @@ def list_knowledge_base():
     path = os.getenv("YANDEX_KB_PATH", "/База Знаний")
     headers = {"Authorization": f"OAuth {token}"}
     params = {"path": path}
-    response = requests.get(YANDEX_DISK_API, headers=headers, params=params)
+    response = requests.get(
+        f"{YANDEX_DISK_API}?fields=_embedded.items.name&_embedded.items.type",
+        headers=headers,
+        params=params
+    )
     response.raise_for_status()
-    return response.json()  # Возвращает структуру папки
+
+    data = response.json()
+    items = data.get('_embedded', {}).get('items', [])
+
+    return [item['name'] for item in items if item['type'] == 'file']
+
 def extract_text(fileobj: io.BytesIO, filename: str) -> str:
     filename = filename.lower()
 
