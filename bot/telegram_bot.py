@@ -109,10 +109,11 @@ class ChatGPTTelegramBot:
 
     #from file_utils import list_knowledge_base
 
-    from telegram.helpers import escape_markdown
+    # Вверху файла (рядом с остальными импортами)
+    from html import escape as h
     from telegram import constants
     from telegram.error import BadRequest
-    from file_utils import list_knowledge_base  # убедись, что импорт есть
+    from file_utils import list_knowledge_base  # важно не забыть!
     
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
@@ -122,22 +123,22 @@ class ChatGPTTelegramBot:
                 await update.message.reply_text("База знаний пуста.")
                 return
     
-            def esc(text: str) -> str:
-                return escape_markdown(text, version=2)
-    
-            header = "📚 *База Знаний:*"
+            header = "📚 <b>База знаний</b>\n\n"
             lines = []
             for item in items:
-                icon = "📁" if item["type"] == "dir" else "📄"
-                lines.append(f"{icon} {esc(item['name'])}")
+                icon = "📁" if item.get("type") == "dir" else "📄"
+                # обязательно экранируем имя
+                name = h(item.get("name", ""))
+                lines.append(f"{icon} {name}")
     
-            text = header + "\n\n" + "\n".join(lines)
+            text = header + "\n".join(lines)
     
             try:
-                await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN_V2)
+                await update.message.reply_text(text, parse_mode=constants.ParseMode.HTML)
             except BadRequest:
-                # если вдруг опять упадёт на разметке — отправляем без Markdown
-                await update.message.reply_text("📚 База Знаний:\n\n" + "\n".join(lines))
+                # На всякий случай fallback без разметки
+                await update.message.reply_text("База знаний:\n\n" + "\n".join(lines))
+    
         except Exception as e:
             await update.message.reply_text(f"Ошибка при загрузке базы знаний:\n{e}")
 
