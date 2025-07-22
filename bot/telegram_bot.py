@@ -17,6 +17,10 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, \
 from pydub import AudioSegment
 from PIL import Image
 from file_utils import extract_text
+from file_utils import list_knowledge_base
+from html import escape
+from telegram.error import BadRequest
+
 
 from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicator, split_into_chunks, \
     edit_message_with_retry, get_stream_cutoff_values, is_allowed, get_remaining_budget, is_admin, is_within_budget, \
@@ -108,36 +112,29 @@ class ChatGPTTelegramBot:
     from utils import get_remaining_budget     # убедитесь, что импорт есть наверху
 
     #from file_utils import list_knowledge_base
-
     # Вверху файла (рядом с остальными импортами)
-    from html import escape
-    from telegram.error import BadRequest
-    from file_utils import list_knowledge_base
-    
+
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             data = list_knowledge_base()
-            items = data.get('_embedded', {}).get('items', [])
+            items = data.get("_embedded", {}).get("items", [])
             if not items:
                 await update.message.reply_text("База знаний пуста.")
                 return
     
-            def h(text: str) -> str:
-                return escape(text, quote=True)
+            def h(t: str) -> str:  # экранирование HTML
+                return escape(t, quote=True)
     
-            parts = ["<b>📚 База Знаний:</b>", ""]
-            for item in items:
-                icon = "📁" if item["type"] == "dir" else "📄"
-                parts.append(f"{icon} {h(item['name'])}")
+            lines = ["<b>📚 База Знаний:</b>", ""]
+            for it in items:
+                icon = "📁" if it["type"] == "dir" else "📄"
+                lines.append(f"{icon} {h(it['name'])}")
     
-            html_text = "\n".join(parts)
-    
+            html_text = "\n".join(lines)
             try:
                 await update.message.reply_text(html_text, parse_mode="HTML")
             except BadRequest:
-                # fallback без форматирования
-                await update.message.reply_text("📚 База Знаний:\n\n" + "\n".join(parts[2:]))
-    
+                await update.message.reply_text("📚 База Знаний:\n\n" + "\n".join(lines[2:]))
         except Exception as e:
             await update.message.reply_text(f"Ошибка при загрузке базы знаний:\n{e}")
 
