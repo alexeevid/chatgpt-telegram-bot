@@ -75,11 +75,18 @@ class ChatGPTTelegramBot:
         self.selected_documents = {}
 
     from telegram.ext import CommandHandler, CallbackQueryHandler
+    from telegram.ext import (
+        CommandHandler,
+        CallbackQueryHandler,
+        InlineQueryHandler,
+        MessageHandler,
+        filters,
+    )
+    from telegram import constants
 
     def register_handlers(self, application):
-        # Обработчик /start — то же, что и /help
+        # 📌 Команды
         application.add_handler(CommandHandler("start", self.help))
-     
         application.add_handler(CommandHandler("help", self.help))
         application.add_handler(CommandHandler("reset", self.reset))
         application.add_handler(CommandHandler("set_model", self.set_model))
@@ -89,18 +96,53 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler("resend", self.resend))
         application.add_handler(CommandHandler("balance", self.balance))
         application.add_handler(CommandHandler("kb", self.show_knowledge_base))
-     
-        # В группах запускаем чат по /chat
-        application.add_handler(CommandHandler("chat", self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
-     
-        if self.config.get('enable_image_generation', False):
+    
+        # 🧠 Только если включена генерация изображений
+        if self.config.get("enable_image_generation", False):
             application.add_handler(CommandHandler("image", self.image))
     
-        if self.config.get('enable_tts_generation', False):
+        # 🔊 Только если включён синтез речи
+        if self.config.get("enable_tts_generation", False):
             application.add_handler(CommandHandler("tts", self.tts))
     
-        # 🔘 Обработка кнопок выбора модели
-        application.add_handler(CallbackQueryHandler(self.handle_model_selection, pattern="^set_model:"))          
+        # 🧑‍🤝‍🧑 Команда чата в группах
+        application.add_handler(CommandHandler(
+            "chat", self.prompt,
+            filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP
+        ))
+    
+        # 📥 Обработка inline-запросов
+        application.add_handler(InlineQueryHandler(
+            self.inline_query,
+            chat_types=[
+                constants.ChatType.PRIVATE,
+                constants.ChatType.GROUP,
+                constants.ChatType.SUPERGROUP
+            ]
+        ))
+    
+        # 🔘 Callback-кнопки
+        application.add_handler(CallbackQueryHandler(self.handle_model_selection, pattern=r'^set_model:'))
+        application.add_handler(CallbackQueryHandler(self.handle_callback_inline_query, pattern=r'^inline_'))
+    
+        # 🧾 Текстовые сообщения (не команды)
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.prompt))
+    
+        # 📄 Документы любого формата
+        application.add_handler(MessageHandler(filters.Document.ALL, self.analyze))
+    
+        # 🖼️ Фото и изображения
+        application.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, self.vision))
+    
+        # 🎙️ Аудио, голосовые и видео
+        application.add_handler(MessageHandler(
+            filters.AUDIO | filters.VOICE | filters.Document.AUDIO |
+            filters.VIDEO | filters.VIDEO_NOTE | filters.Document.VIDEO,
+            self.transcribe
+        ))
+    
+        # ⚠️ Обработчик ошибок
+        application.add_error_handler(error_handler)        
     
     async def some_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         async with AsyncSessionLocal() as session:
@@ -882,6 +924,21 @@ class ChatGPTTelegramBot:
         chat_id = update.effective_chat.id
         user_id = update.message.from_user.id
         prompt = message_text(update.message)
+        # 📚 Добавим тексты выбранных документов из базы знаний (если есть)
+        context_parts = []
+        selected = self.selected_documents.get(chat_id, [])
+        max_docs = 2  # ограничим количеством документов
+
+        for i, doc in enumerate(selected[:max_docs]):
+            try:
+                content = await self.load_document_content(doc)
+                context_parts.append(f"[Документ {i+1}: {doc}]\n{content.strip()[:3000]}")
+            except Exception as e:
+                logging.warning(f"Не удалось загрузить {doc}: {e}")
+
+        if context_parts:
+            context_text = "\n\n".join(context_parts)
+            prompt = f"📚 Контекст из базы знаний:\n{context_text}\n\n🔎 Вопрос:\n{prompt}"
         self.last_message[chat_id] = prompt
 
         if is_group_chat(update):
@@ -1032,6 +1089,34 @@ class ChatGPTTelegramBot:
                 parse_mode=constants.ParseMode.MARKDOWN
             )
 
+        async def load_document_content(self, doc_name: str) -> str:
+            """
+            Загружает содержимое документа из Яндекс.Диска.
+            """
+            import requests
+    
+            token = os.getenv("YANDEX_TOKEN")
+            path = os.getenv("YANDEX_KB_PATH", "/База Знаний") + "/" + doc_name
+            headers = {"Authorization": f"OAuth {token}"}
+    
+            # Получаем временную ссылку
+            meta = requests.get(
+                "https://cloud-api.yandex.net/v1/disk/resources/download",
+                headers=headers,
+                params={"path": path}
+            )
+            meta.raise_for_status()
+            href = meta.json()["href"]
+    
+            # Скачиваем файл
+            file_response = requests.get(href)
+            file_response.raise_for_status()
+    
+            from io import BytesIO
+            from file_utils import extract_text
+    
+            return extract_text(BytesIO(file_response.content), doc_name)
+    
     async def inline_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
         Handle the inline query. This is run when you type: @botusername <query>
@@ -1304,41 +1389,3 @@ class ChatGPTTelegramBot:
 
         # 5) Запускаем polling (единственный раз)
         application.run_polling()
-
-        # 6) При остановке — закрываем loop
-        _loop.close()
-    
-        application.add_handler(CommandHandler('reset', self.reset))
-        application.add_handler(CommandHandler('help', self.help))
-        application.add_handler(CommandHandler('image', self.image))
-        application.add_handler(CommandHandler('analyze', self.analyze))
-        application.add_handler(CommandHandler('tts', self.tts))
-        application.add_handler(CommandHandler('start', self.help))
-        application.add_handler(CommandHandler('stats', self.stats))
-        application.add_handler(CommandHandler('resend', self.resend))
-        application.add_handler(CommandHandler('set_model', self.set_model))
-        application.add_handler(CommandHandler('list_model', self.list_models))
-        application.add_handler(CommandHandler('kb', self.show_knowledge_base))
-    
-        application.add_handler(CallbackQueryHandler(self.handle_model_selection, pattern=r'^set_model:'))
-        application.add_handler(CallbackQueryHandler(self.handle_callback_inline_query, pattern=r'^inline_'))
-    
-        application.add_handler(CommandHandler(
-            'chat', self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP)
-        )
-        application.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, self.vision))
-        application.add_handler(MessageHandler(
-            filters.AUDIO | filters.VOICE | filters.Document.AUDIO |
-            filters.VIDEO | filters.VIDEO_NOTE | filters.Document.VIDEO,
-            self.transcribe))
-        application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self.prompt))
-        application.add_handler(MessageHandler(filters.Document.ALL, self.analyze))
-    
-        application.add_handler(InlineQueryHandler(self.inline_query, chat_types=[
-            constants.ChatType.GROUP, constants.ChatType.SUPERGROUP, constants.ChatType.PRIVATE
-        ]))
-    
-        application.add_error_handler(error_handler)
-    
-        application.run_polling()
-
