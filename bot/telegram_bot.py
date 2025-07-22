@@ -161,7 +161,7 @@ class ChatGPTTelegramBot:
 
         files = list_knowledge_base()
         if not files:
-            await update.message.reply_text("⚠️ База знаний пуста.")
+            await update.effective_message.reply_text("⚠️ База знаний пуста.")
             return
 
         # Сохраняем выбор в сессии (временный список)
@@ -174,7 +174,7 @@ class ChatGPTTelegramBot:
 
         buttons.append([InlineKeyboardButton("✅ Готово", callback_data="kbselect_done")])
 
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "📚 Выберите документы для включения в контекст:",
             reply_markup=InlineKeyboardMarkup(buttons)
         )
