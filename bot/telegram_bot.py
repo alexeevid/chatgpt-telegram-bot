@@ -196,7 +196,7 @@ class ChatGPTTelegramBot:
             )
             return
 
-        # Выбор/отмена документа
+        # Обработка выбора/отмены одного документа
         filename = data.replace("kbselect:", "")
         selected_set = self.temp_selected_documents.setdefault(chat_id, set())
 
@@ -205,7 +205,7 @@ class ChatGPTTelegramBot:
         else:
             selected_set.add(filename)
 
-        # Обновляем кнопки
+        # Обновим кнопки со статусом
         files = list_knowledge_base()
         buttons = []
         for f in files[:20]:
@@ -214,7 +214,10 @@ class ChatGPTTelegramBot:
 
         buttons.append([InlineKeyboardButton("✅ Готово", callback_data="kbselect_done")])
 
-        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
+        try:
+            await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
+        except Exception as e:
+            logging.warning(f"Не удалось обновить кнопки выбора KB: {e}")
     
     async def balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         remaining = get_remaining_budget(
