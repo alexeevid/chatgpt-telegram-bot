@@ -1114,7 +1114,7 @@ class ChatGPTTelegramBot:
         from file_utils import extract_text
 
         return extract_text(BytesIO(file_response.content), doc_name)
-
+    
     async def inline_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
         Handle the inline query. This is run when you type: @botusername <query>
