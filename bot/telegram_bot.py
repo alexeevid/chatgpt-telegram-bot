@@ -70,7 +70,8 @@ class ChatGPTTelegramBot:
         self.usage = {}
         self.last_message = {}
         self.inline_queries_cache = {}
-        
+        self.temp_selected_documents = {}
+
         # Инициализация выбранных пользователем файлов из Базы Знаний
         self.selected_documents = {}
 
@@ -94,6 +95,7 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler("resend", self.resend))
         application.add_handler(CommandHandler("balance", self.balance))
         application.add_handler(CommandHandler("kb", self.show_knowledge_base))
+        application.add_handler(CallbackQueryHandler(self.handle_kb_selection, pattern=r"^kbselect"))
     
         # 🧠 Только если включена генерация изображений
         if self.config.get("enable_image_generation", False):
@@ -155,29 +157,65 @@ class ChatGPTTelegramBot:
     # Вверху файла (рядом с остальными импортами)
 
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        try:
-            data = list_knowledge_base()
-            items = data.get("_embedded", {}).get("items", [])
-            if not items:
-                await update.message.reply_text("База знаний пуста.")
-                return
-    
-            def h(t: str) -> str:  # экранирование HTML
-                return escape(t, quote=True)
-    
-            lines = ["<b>📚 База Знаний:</b>", ""]
-            for it in items:
-                icon = "📁" if it["type"] == "dir" else "📄"
-                lines.append(f"{icon} {h(it['name'])}")
-    
-            html_text = "\n".join(lines)
-            try:
-                await update.message.reply_text(html_text, parse_mode="HTML")
-            except BadRequest:
-                await update.message.reply_text("📚 База Знаний:\n\n" + "\n".join(lines[2:]))
-        except Exception as e:
-            await update.message.reply_text(f"Ошибка при загрузке базы знаний:\n{e}")
+        chat_id = update.effective_chat.id
 
+        files = list_knowledge_base()
+        if not files:
+            await update.message.reply_text("⚠️ База знаний пуста.")
+            return
+
+        # Сохраняем выбор в сессии (временный список)
+        self.temp_selected_documents[chat_id] = set()
+
+        # Создаём кнопки
+        buttons = []
+        for filename in files[:20]:  # ограничим 20
+            buttons.append([InlineKeyboardButton(f"📄 {filename}", callback_data=f"kbselect:{filename}")])
+
+        buttons.append([InlineKeyboardButton("✅ Готово", callback_data="kbselect_done")])
+
+        await update.message.reply_text(
+            "📚 Выберите документы для включения в контекст:",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+
+    async def handle_kb_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+
+        chat_id = query.message.chat.id
+        data = query.data
+
+        if data == "kbselect_done":
+            selected = list(self.temp_selected_documents.get(chat_id, []))
+            self.selected_documents[chat_id] = selected
+            del self.temp_selected_documents[chat_id]
+
+            await query.edit_message_text(
+                text="✅ Документы выбраны:\n" + "\n".join(f"• {name}" for name in selected)
+            )
+            return
+
+        # Выбор/отмена документа
+        filename = data.replace("kbselect:", "")
+        selected_set = self.temp_selected_documents.setdefault(chat_id, set())
+
+        if filename in selected_set:
+            selected_set.remove(filename)
+        else:
+            selected_set.add(filename)
+
+        # Обновляем кнопки
+        files = list_knowledge_base()
+        buttons = []
+        for f in files[:20]:
+            prefix = "✅" if f in selected_set else "📄"
+            buttons.append([InlineKeyboardButton(f"{prefix} {f}", callback_data=f"kbselect:{f}")])
+
+        buttons.append([InlineKeyboardButton("✅ Готово", callback_data="kbselect_done")])
+
+        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
+    
     async def balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         remaining = get_remaining_budget(
             self.config,
