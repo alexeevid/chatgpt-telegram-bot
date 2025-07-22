@@ -157,27 +157,40 @@ class ChatGPTTelegramBot:
     # Вверху файла (рядом с остальными импортами)
 
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-        files = list_knowledge_base()
+        chat_id = update.effective_chat.id
+        logging.warning(">>> Команда /kb вызвана")
+
+        try:
+            files = list_knowledge_base()
+        except Exception as e:
+            logging.exception("Ошибка при получении списка файлов из базы знаний")
+            await update.effective_message.reply_text("⚠️ Не удалось загрузить базу знаний. Проверь токен или путь.")
+            return
+
         if not files:
             await update.effective_message.reply_text("⚠️ База знаний пуста.")
             return
 
-        # Сохраняем выбор в сессии (временный список)
+        # Сохраняем временный выбор
         self.temp_selected_documents[chat_id] = set()
 
-        # Создаём кнопки
+        # Строим кнопки
         buttons = []
-        for filename in files[:20]:  # ограничим 20
+        for filename in files[:20]:  # Ограничим 20 для безопасности
             buttons.append([InlineKeyboardButton(f"📄 {filename}", callback_data=f"kbselect:{filename}")])
 
         buttons.append([InlineKeyboardButton("✅ Готово", callback_data="kbselect_done")])
 
-        await update.effective_message.reply_text(
-            "📚 Выберите документы для включения в контекст:",
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
+        try:
+            await update.effective_message.reply_text(
+                "📚 Выберите документы для включения в контекст:",
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+        except Exception as e:
+            logging.exception("Ошибка при отправке кнопок /kb")
+            await context.bot.send_message(chat_id=chat_id, text="⚠️ Ошибка при выводе кнопок выбора.")
 
     async def handle_kb_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
