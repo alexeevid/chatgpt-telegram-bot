@@ -113,8 +113,8 @@ class ChatGPTTelegramBot:
     from telegram import constants
     from telegram.error import BadRequest
     
-    def md2(s: str) -> str:
-        return escape_markdown(s, version=2)
+    def esc2(text: str) -> str:
+        return escape_markdown(text, version=2)
     
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
@@ -124,19 +124,20 @@ class ChatGPTTelegramBot:
                 await update.message.reply_text("База знаний пуста.")
                 return
     
-            lines = [md2("📚 *База Знаний:*")]  # заголовок
+            # Заголовок оставляем с форматированием, имена — экранируем
+            header = "📚 *База Знаний:*"
+            lines = []
             for item in items:
-                name = md2(item["name"])
-                prefix = "📁" if item["type"] == "dir" else "📄"
-                lines.append(f"{prefix} {name}")
+                icon = "📁" if item["type"] == "dir" else "📄"
+                lines.append(f"{icon} {esc2(item['name'])}")
     
-            text = "\n".join(lines)
+            text = header + "\n\n" + "\n".join(lines)
     
             try:
                 await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN_V2)
             except BadRequest:
-                await update.message.reply_text(text)  # без форматирования
-    
+                # Если вдруг Markdown всё равно ломается — отправим без форматирования
+                await update.message.reply_text("📚 База Знаний:\n\n" + "\n".join(lines))
         except Exception as e:
             await update.message.reply_text(f"Ошибка при загрузке базы знаний:\n{e}")
 
