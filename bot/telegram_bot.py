@@ -109,6 +109,13 @@ class ChatGPTTelegramBot:
 
     #from file_utils import list_knowledge_base
 
+    from telegram.helpers import escape_markdown
+    from telegram import constants
+    from telegram.error import BadRequest
+    
+    def md2(s: str) -> str:
+        return escape_markdown(s, version=2)
+    
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             data = list_knowledge_base()
@@ -117,12 +124,19 @@ class ChatGPTTelegramBot:
                 await update.message.reply_text("База знаний пуста.")
                 return
     
-            text = "📚 *База Знаний:*\n\n"
+            lines = [md2("📚 *База Знаний:*")]  # заголовок
             for item in items:
-                name = item['name']
-                is_folder = item['type'] == 'dir'
-                text += f"📁 {name}\n" if is_folder else f"📄 {name}\n"
-            await update.message.reply_text(text, parse_mode='Markdown')
+                name = md2(item["name"])
+                prefix = "📁" if item["type"] == "dir" else "📄"
+                lines.append(f"{prefix} {name}")
+    
+            text = "\n".join(lines)
+    
+            try:
+                await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN_V2)
+            except BadRequest:
+                await update.message.reply_text(text)  # без форматирования
+    
         except Exception as e:
             await update.message.reply_text(f"Ошибка при загрузке базы знаний:\n{e}")
 
