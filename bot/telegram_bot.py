@@ -36,6 +36,7 @@ from bot.limits import MAX_KB_DOCS, MAX_KB_FILES_DISPLAY
 from bot.openai_helper import OpenAIHelper, localized_text
 from bot.usage_tracker import UsageTracker
 from bot.db import AsyncSessionLocal
+from bot.knowledge_base.yandex_client import YandexDiskClient
 
 from bot.utils import (
     is_group_chat,
@@ -259,32 +260,30 @@ class ChatGPTTelegramBot:
     
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.warning(">>> Команда /kb вызвана")
-        message = update.message or (update.callback_query.message if update.callback_query else None)
-    
-        if not await is_allowed(self.config, update, context):
-            logging.warning("Пользователь не разрешён")
-            await self.send_disallowed_message(update, context)
-            return
-    
         try:
-            kb_root = os.getenv("KB_ROOT_FOLDER", "knowledge_base")
-            files = list_knowledge_base(kb_root)
-    
-            if not files:
-                await message.reply_text("📂 База знаний пуста.")
+            kb_root = os.getenv("YANDEX_ROOT_PATH", "/knowledge_base")
+            token = os.getenv("YANDEX_DISK_TOKEN")
+            if not token:
+                await update.message.reply_text("Не задан YANDEX_DISK_TOKEN")
                 return
     
-            buttons = [
-                [InlineKeyboardButton(text=f, callback_data=f"kbselect:{f}")]
-                for f in files
-            ]
+            yd = YandexDiskClient(token=token)
+            files = [path for path, _ in yd.iter_files(kb_root)]  # список всех файлов
     
-            reply_markup = InlineKeyboardMarkup(buttons)
-            await message.reply_text("📚 Выберите документ из базы знаний:", reply_markup=reply_markup)
+            if not files:
+                await update.message.reply_text("В базе знаний нет файлов.")
+                return
+    
+            # Сформируй красивый вывод (сократим до первых 30 строк)
+            reply = "Файлы в базе знаний:\n" + "\n".join(f"- {p}" for p in files[:30])
+            if len(files) > 30:
+                reply += f"\n… и ещё {len(files) - 30}"
+    
+            await update.message.reply_text(reply)
     
         except Exception as e:
             logging.error("Ошибка при получении списка файлов из базы знаний", exc_info=True)
-            await message.reply_text("⚠️ Не удалось загрузить базу знаний. Проверь токен или путь.")
+            await update.message.reply_text("Не удалось загрузить базу знаний. Проверь токен или путь")
 
     async def handle_password_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
