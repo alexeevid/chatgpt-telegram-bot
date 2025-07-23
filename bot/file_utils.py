@@ -37,15 +37,17 @@ def extract_text_from_encrypted_pdf(file_path: str, password: str) -> str:
             if reader.is_encrypted:
                 result = reader.decrypt(password)
                 if result != 1:
+                    logging.warning(f"[PDF] Неудачная попытка расшифровки PDF: {file_path}")
                     return "⚠️ Неверный пароль или не удалось расшифровать PDF."
 
+            logging.info(f"[PDF] Успешно расшифрован PDF: {file_path}")
             text = ""
             for page in reader.pages:
                 text += page.extract_text() or ""
             return text.strip()
     except Exception as e:
+        logging.exception(f"[PDF] Ошибка при чтении PDF: {file_path} — {e}")
         return f"⚠️ Ошибка при чтении PDF: {e}"
-
 
 def set_awaiting_password(user_id: int, file_path: str):
     awaiting_pdf_passwords[user_id] = file_path
