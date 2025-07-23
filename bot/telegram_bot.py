@@ -173,13 +173,22 @@ class ChatGPTTelegramBot:
             await update.effective_message.reply_text("⚠️ База знаний пуста.")
             return
 
+        # Обрезаем количество файлов, чтобы не перегрузить Telegram
+        max_files = 20
+        files = files[:max_files]
+        logging.warning(f"[KB] Показываем первые {max_files} файлов")
+
         # Сохраняем временный выбор
         self.temp_selected_documents[chat_id] = set()
+        self.kb_file_map = {}  # храним соответствие короткого ID и полного имени файла
 
-        # Строим кнопки
         buttons = []
-        for filename in files[:20]:  # Ограничим 20 для безопасности
-            buttons.append([InlineKeyboardButton(f"📄 {filename}", callback_data=f"kbselect:{filename}")])
+        for filename in files:
+            from hashlib import md5
+            short_id = md5(filename.encode()).hexdigest()[:10]
+            self.kb_file_map[short_id] = filename
+            callback_data = f"kbselect:{short_id}"
+            buttons.append([InlineKeyboardButton(f"📄 {filename}", callback_data=callback_data)])
 
         buttons.append([InlineKeyboardButton("✅ Готово", callback_data="kbselect_done")])
 
@@ -189,48 +198,39 @@ class ChatGPTTelegramBot:
                 reply_markup=InlineKeyboardMarkup(buttons)
             )
         except Exception as e:
-            logging.exception("Ошибка при отправке кнопок /kb")
+            logging.exception("Ошибка при выводе кнопок выбора /kb")
             await context.bot.send_message(chat_id=chat_id, text="⚠️ Ошибка при выводе кнопок выбора.")
 
     async def handle_kb_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
-
         chat_id = query.message.chat.id
+
         data = query.data
-
         if data == "kbselect_done":
-            selected = list(self.temp_selected_documents.get(chat_id, []))
-            self.selected_documents[chat_id] = selected
-            del self.temp_selected_documents[chat_id]
-
-            await query.edit_message_text(
-                text="✅ Документы выбраны:\n" + "\n".join(f"• {name}" for name in selected)
-            )
+            selected = self.temp_selected_documents.get(chat_id, set())
+            self.selected_documents[chat_id] = list(selected)
+            logging.info(f"[KB] Пользователь {chat_id} выбрал документы: {self.selected_documents[chat_id]}")
+            await query.edit_message_text("✅ Выбор документов сохранён.")
             return
 
-        # Обработка выбора/отмены одного документа
-        filename = data.replace("kbselect:", "")
-        selected_set = self.temp_selected_documents.setdefault(chat_id, set())
+        if ":" not in data:
+            await query.answer("⚠️ Неверный формат callback.")
+            return
 
-        if filename in selected_set:
-            selected_set.remove(filename)
+        _, short_id = data.split(":")
+        filename = self.kb_file_map.get(short_id)
+        if not filename:
+            await query.answer("⚠️ Файл не найден.")
+            return
+
+        selected = self.temp_selected_documents.setdefault(chat_id, set())
+        if filename in selected:
+            selected.remove(filename)
+            await query.answer(f"📄 Убран: {filename}")
         else:
-            selected_set.add(filename)
-
-        # Обновим кнопки со статусом
-        files = list_knowledge_base()
-        buttons = []
-        for f in files[:20]:
-            prefix = "✅" if f in selected_set else "📄"
-            buttons.append([InlineKeyboardButton(f"{prefix} {f}", callback_data=f"kbselect:{f}")])
-
-        buttons.append([InlineKeyboardButton("✅ Готово", callback_data="kbselect_done")])
-
-        try:
-            await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(buttons))
-        except Exception as e:
-            logging.warning(f"Не удалось обновить кнопки выбора KB: {e}")
+            selected.add(filename)
+            await query.answer(f"📄 Добавлен: {filename}")
     
     async def balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         remaining = get_remaining_budget(
