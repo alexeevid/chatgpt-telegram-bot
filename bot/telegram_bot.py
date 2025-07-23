@@ -944,6 +944,7 @@ class ChatGPTTelegramBot:
         """
         React to incoming messages and respond accordingly.
         """
+        await add_chat_request_to_usage_tracker(self.config, self.usage, update)
         if update.edited_message or not update.message or update.message.via_bot:
             return
 
