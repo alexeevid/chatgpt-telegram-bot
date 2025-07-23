@@ -19,3 +19,4 @@ sqlalchemy[asyncio]
 alembic
 asyncpg
 requests
+PyPDF2>=3.0.0
