@@ -100,6 +100,8 @@ class ChatGPTTelegramBot:
         application.add_handler(CallbackQueryHandler(self.handle_kb_selection, pattern=r"^kbselect"))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_password_input))
         application.add_handler(MessageHandler(filters.Document.ALL, self.handle_file_upload))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_password_input))
+
     
         # 🧠 Только если включена генерация изображений
         if self.config.get("enable_image_generation", False):
@@ -266,6 +268,22 @@ class ChatGPTTelegramBot:
             logging.exception("Ошибка при выводе кнопок выбора /kb")
             await context.bot.send_message(chat_id=chat_id, text="⚠️ Ошибка при выводе кнопок выбора.")
 
+    async def handle_password_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        password = update.message.text.strip()
+        
+        from file_utils import get_awaiting_password_file, clear_awaiting_password, extract_text_from_encrypted_pdf
+    
+        file_path = get_awaiting_password_file(user_id)
+        if not file_path:
+            await update.message.reply_text("⚠️ Нет ожидающего файла для ввода пароля.")
+            return
+    
+        text = extract_text_from_encrypted_pdf(file_path, password)
+        clear_awaiting_password(user_id)
+    
+        await update.message.reply_text(text[:4000] if text else "⚠️ Не удалось извлечь текст.")
+    
     async def handle_kb_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
