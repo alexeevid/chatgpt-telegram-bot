@@ -4,6 +4,7 @@ import asyncio
 import io
 import logging
 import os
+import requests
 from datetime import datetime
 from uuid import uuid4
 from html import escape
@@ -261,26 +262,35 @@ class ChatGPTTelegramBot:
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.warning(">>> Команда /kb вызвана")
         try:
-            kb_root = os.getenv("YANDEX_ROOT_PATH", "/knowledge_base")
-            token = os.getenv("YANDEX_DISK_TOKEN")
+            kb_root  = os.getenv("YANDEX_ROOT_PATH", "/knowledge_base")
+            if not kb_root.startswith("/"):
+                kb_root = "/" + kb_root
+    
+            token    = os.getenv("YANDEX_DISK_TOKEN")
+            base_url = os.getenv("YANDEX_DISK_WEBDAV_URL", "https://webdav.yandex.ru").rstrip("/")
+    
             if not token:
                 await update.message.reply_text("Не задан YANDEX_DISK_TOKEN")
                 return
     
-            yd = YandexDiskClient(token=token)
-            files = [path for path, _ in yd.iter_files(kb_root)]  # список всех файлов
+            logging.debug("YD base_url=%s, root=%s", base_url, kb_root)
+    
+            yd = YandexDiskClient(token=token, base_url=base_url)
+            files = [path for path, _ in yd.iter_files(kb_root)]
     
             if not files:
                 await update.message.reply_text("В базе знаний нет файлов.")
                 return
     
-            # Сформируй красивый вывод (сократим до первых 30 строк)
             reply = "Файлы в базе знаний:\n" + "\n".join(f"- {p}" for p in files[:30])
             if len(files) > 30:
                 reply += f"\n… и ещё {len(files) - 30}"
     
             await update.message.reply_text(reply)
     
+        except requests.exceptions.RequestException as e:
+            logging.error("Сетевой сбой при обращении к Я.Диску: %s", e, exc_info=True)
+            await update.message.reply_text("Не удалось подключиться к Яндекс.Диску. Проверь URL/токен/сеть.")
         except Exception as e:
             logging.error("Ошибка при получении списка файлов из базы знаний", exc_info=True)
             await update.message.reply_text("Не удалось загрузить базу знаний. Проверь токен или путь")
