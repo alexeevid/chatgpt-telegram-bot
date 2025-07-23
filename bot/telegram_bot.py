@@ -227,10 +227,27 @@ class ChatGPTTelegramBot:
         selected = self.temp_selected_documents.setdefault(chat_id, set())
         if filename in selected:
             selected.remove(filename)
-            await query.answer(f"📄 Убран: {filename}")
         else:
             selected.add(filename)
-            await query.answer(f"📄 Добавлен: {filename}")
+
+        # 🔁 Перерисовываем клавиатуру с актуальным статусом
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+        buttons = []
+        for sid, fname in self.kb_file_map.items():
+            prefix = "☑️" if fname in selected else "⬜️"
+            buttons.append([InlineKeyboardButton(
+                f"{prefix} {fname}", callback_data=f"kbselect:{sid}"
+            )])
+
+        buttons.append([InlineKeyboardButton("✅ Готово", callback_data="kbselect_done")])
+
+        try:
+            await query.edit_message_reply_markup(
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+        except Exception as e:
+            logging.exception("Ошибка при обновлении кнопок KB")
     
     async def balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         remaining = get_remaining_budget(
