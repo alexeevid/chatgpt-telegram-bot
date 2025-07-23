@@ -390,7 +390,6 @@ class ChatGPTTelegramBot:
         chat_id = update.effective_chat.id
         chat_messages, chat_token_length = self.openai.get_conversation_stats(chat_id)
         bot_language = self.config['bot_language']
-    
         lt = lambda key: localized_text(key, bot_language)
     
         usage_text = (
@@ -400,25 +399,49 @@ class ChatGPTTelegramBot:
             "----------------------------\n"
             f"*{lt('usage_today')}:*\n"
             f"{tokens_today} {lt('stats_tokens')}\n"
-            f"{images_today} {lt('stats_images')}\n" if self.config.get('enable_image_generation') else ""
-            f"{vision_today} {lt('stats_vision')}\n" if self.config.get('enable_vision') else ""
-            f"{chars_today} {lt('stats_tts')}\n" if self.config.get('enable_tts_generation') else ""
+        )
+    
+        if self.config.get('enable_image_generation'):
+            usage_text += f"{images_today} {lt('stats_images')}\n"
+        if self.config.get('enable_vision'):
+            usage_text += f"{vision_today} {lt('stats_vision')}\n"
+        if self.config.get('enable_tts_generation'):
+            usage_text += f"{chars_today} {lt('stats_tts')}\n"
+    
+        usage_text += (
             f"{tr_min_t} {lt('stats_transcribe')[0]} {tr_sec_t} {lt('stats_transcribe')[1]}\n"
             f"{lt('stats_total')}{current_cost['cost_today']:.2f}\n"
             "----------------------------\n"
             f"*{lt('usage_month')}:*\n"
             f"{tokens_month} {lt('stats_tokens')}\n"
-            f"{images_month} {lt('stats_images')}\n" if self.config.get('enable_image_generation') else ""
-            f"{vision_month} {lt('stats_vision')}\n" if self.config.get('enable_vision') else ""
-            f"{chars_month} {lt('stats_tts')}\n" if self.config.get('enable_tts_generation') else ""
+        )
+    
+        if self.config.get('enable_image_generation'):
+            usage_text += f"{images_month} {lt('stats_images')}\n"
+        if self.config.get('enable_vision'):
+            usage_text += f"{vision_month} {lt('stats_vision')}\n"
+        if self.config.get('enable_tts_generation'):
+            usage_text += f"{chars_month} {lt('stats_tts')}\n"
+    
+        usage_text += (
             f"{tr_min_m} {lt('stats_transcribe')[0]} {tr_sec_m} {lt('stats_transcribe')[1]}\n"
-            f"{lt('stats_total')}{current_cost['cost_month']:.2f}\n"
+            f"{lt('stats_total')}{current_cost['cost_month']:.2f}"
         )
     
         remaining_budget = get_remaining_budget(self.config, self.usage, update)
         budget_period = self.config.get('budget_period')
         if remaining_budget < float('inf'):
             usage_text += f"\n\n{lt('stats_budget')}{lt(budget_period)}: ${remaining_budget:.2f}."
+    
+        # 🧮 Добавим секцию с лимитами
+        usage_text += (
+            f"\n\n*Лимиты и параметры:*\n"
+            f"Макс. токенов в ответе: `{self.config.get('max_tokens')}`\n"
+            f"Макс. сообщений в истории: `{self.config.get('max_history_size')}`\n"
+            f"Макс. возраст истории: `{self.config.get('max_conversation_age_minutes')}` мин\n"
+            f"Цена токена: `${self.config.get('token_price')}`\n"
+            f"Период бюджета: `{budget_period}`"
+        )
     
         await message.reply_text(usage_text, parse_mode=constants.ParseMode.MARKDOWN)
     
