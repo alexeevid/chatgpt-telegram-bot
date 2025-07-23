@@ -1,25 +1,22 @@
 from __future__ import annotations
+
 import datetime
 import logging
 import os
-
-import tiktoken
-
-import openai
-
 import json
 import httpx
 import io
-from PIL import Image
 
+from PIL import Image
+import tiktoken
+import openai
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 
-from utils import is_direct_result, encode_image, decode_image
-from plugin_manager import PluginManager
-from .knowledge_base.context_manager import ContextManager
-from .knowledge_base.retriever import Retriever
-from .knowledge_base.splitter import trim_to_token_limit, build_context_messages
-from .limits import MAX_CONTEXT_TOKENS
+# наши утилиты и менеджер плагинов
+from bot.utils import is_direct_result, encode_image, decode_image
+from bot.plugin_manager import PluginManager
+
+# RAG блок (ТОЛЬКО абсолютные импорты!)
 from bot.knowledge_base.context_manager import ContextManager
 from bot.knowledge_base.retriever import Retriever
 from bot.knowledge_base.splitter import trim_to_token_limit, build_context_messages
