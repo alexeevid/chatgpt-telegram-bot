@@ -181,6 +181,45 @@ class ChatGPTTelegramBot:
             clear_awaiting_password(user_id)
             await update.message.reply_text(f"🔓 Файл расшифрован. Содержимое:\n\n{text[:3000]}")
     
+    async def handle_file_upload(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        message = update.message
+        user_id = message.from_user.id
+    
+        document = message.document
+        if not document:
+            await message.reply_text("⚠️ Пожалуйста, отправьте файл для анализа.")
+            return
+    
+        file_name = document.file_name
+        file = await document.get_file()
+        file_data = await file.download_as_bytearray()
+    
+        file_path = f"/tmp/{file_name}"
+        with open(file_path, "wb") as f:
+            f.write(file_data)
+    
+        from file_utils import extract_text, extract_text_from_encrypted_pdf, set_awaiting_password
+    
+        # Проверка: зашифрован ли PDF
+        if file_name.lower().endswith(".pdf"):
+            text = extract_text(file_path)
+            if "⚠️ Файл защищён паролем" in text:
+                set_awaiting_password(user_id, file_path)
+                await message.reply_text(f"📄 Файл *{file_name}* защищён паролем.\nПожалуйста, отправьте пароль в чат.", parse_mode=constants.ParseMode.MARKDOWN)
+                return
+        else:
+            text = extract_text(file_path)
+    
+        if not text.strip():
+            await message.reply_text(f"⚠️ Не удалось извлечь текст из файла *{file_name}*.")
+            return
+    
+        # Сохраняем как контекст в чат
+        chat_id = update.effective_chat.id
+        self.chat_memory[chat_id] = [{"role": "system", "content": f"Context from uploaded file {file_name}:\n{text}"}]
+    
+        await message.reply_text(f"✅ Контекст из *{file_name}* успешно загружен.", parse_mode=constants.ParseMode.MARKDOWN)
+    
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
