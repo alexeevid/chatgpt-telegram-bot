@@ -129,10 +129,12 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler("balance", self.balance))
         application.add_handler(CommandHandler("kb", self.show_knowledge_base))
         application.add_handler(CallbackQueryHandler(self.handle_kb_selection, pattern=r"^kbselect"))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_password_input))
+    
+        # 🔐 Ввод пароля для защищённых PDF
+        application.add_handler(MessageHandler(filters.TEXT & filters.ALL, self.handle_password_input))
+    
+        # 📄 Загрузка документов
         application.add_handler(MessageHandler(filters.Document.ALL, self.handle_file_upload))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_password_input))
-
     
         # 🧠 Только если включена генерация изображений
         if self.config.get("enable_image_generation", False):
@@ -177,16 +179,10 @@ class ChatGPTTelegramBot:
             filters.VIDEO | filters.VIDEO_NOTE | filters.Document.VIDEO,
             self.transcribe
         ))
-        
-        # 🔐 Ввод пароля для защищённых PDF
-            application.add_handler(MessageHandler(
-                filters.TEXT & filters.ALL,
-                self.handle_password_input
-            ))
-        
-        # ⚠️ Обработчик ошибок
-        application.add_error_handler(error_handler)        
     
+        # ⚠️ Обработчик ошибок
+        application.add_error_handler(error_handler)
+
     async def some_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         async with AsyncSessionLocal() as session:
             pass # …работа с session: session.add(...), session.execute(...), await session.commit()
