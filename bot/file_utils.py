@@ -61,3 +61,18 @@ def extract_text(fileobj: io.BytesIO, filename: str) -> str:
 
     else:
         raise ValueError(f"Unsupported file format: {filename}")
+from PyPDF2 import PdfReader
+
+def extract_text_from_encrypted_pdf(file_path: str, password: str) -> str:
+    try:
+        with open(file_path, "rb") as file:
+            reader = PdfReader(file)
+            if reader.is_encrypted:
+                reader.decrypt(password)
+
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() or ""
+            return text.strip()
+    except Exception as e:
+        return f"⚠️ Ошибка при чтении PDF: {e}"
