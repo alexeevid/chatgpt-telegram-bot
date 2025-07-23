@@ -31,13 +31,13 @@ from telegram.ext import (
 )
 from telegram.error import RetryAfter, TimedOut, BadRequest
 
-from file_utils import extract_text, list_knowledge_base
-from limits import MAX_KB_DOCS, MAX_KB_FILES_DISPLAY
+from bot.file_utils import extract_text, list_knowledge_base
+from bot.limits import MAX_KB_DOCS, MAX_KB_FILES_DISPLAY
 from bot.openai_helper import OpenAIHelper, localized_text
-from usage_tracker import UsageTracker
-from db import AsyncSessionLocal
+from bot.usage_tracker import UsageTracker
+from bot.db import AsyncSessionLocal
 
-from utils import (
+from bot.utils import (
     is_group_chat,
     get_thread_id,
     message_text,
@@ -56,6 +56,7 @@ from utils import (
     handle_direct_result,
     cleanup_intermediate_files
 )
+
 
 from PIL import Image
 from pydub import AudioSegment
@@ -1551,13 +1552,13 @@ class ChatGPTTelegramBot:
 
 
 # ==== Knowledge Base handlers (injected) ====
-from .knowledge_base.reindexer import reindex as kb_reindex
-from .knowledge_base.yandex_client import YandexDiskClient
-from .knowledge_base.context_manager import ContextManager
-from .knowledge_base.retriever import Retriever
-from .knowledge_base.embedder import Embedder
-from .knowledge_base.vector_store import VectorStore
-from .knowledge_base.splitter import build_context_messages
+from bot.knowledge_base.reindexer import reindex as kb_reindex
+from bot.knowledge_base.yandex_client import YandexDiskClient
+from bot.knowledge_base.context_manager import ContextManager
+from bot.knowledge_base.retriever import Retriever
+from bot.knowledge_base.embedder import Embedder
+from bot.knowledge_base.vector_store import VectorStore
+from bot.knowledge_base.splitter import build_context_messages
 
 pdf_passwords = {}
 ctx_manager = ContextManager()
