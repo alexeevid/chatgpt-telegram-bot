@@ -20,7 +20,7 @@ from file_utils import extract_text
 from file_utils import list_knowledge_base
 from html import escape
 from telegram.error import BadRequest
-
+from limits import MAX_KB_DOCS, MAX_KB_FILES_DISPLAY
 
 from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicator, split_into_chunks, \
     edit_message_with_retry, get_stream_cutoff_values, is_allowed, get_remaining_budget, is_admin, is_within_budget, \
@@ -175,7 +175,7 @@ class ChatGPTTelegramBot:
 
         # Обрезаем количество файлов, чтобы не перегрузить Telegram
         max_files = 20
-        files = files[:max_files]
+        files = files[:MAX_KB_FILES_DISPLAY]
         logging.warning(f"[KB] Показываем первые {max_files} файлов")
 
         # Сохраняем временный выбор
@@ -996,7 +996,7 @@ class ChatGPTTelegramBot:
         # 📚 Добавим тексты выбранных документов из базы знаний (если есть)
         context_parts = []
         selected = self.selected_documents.get(chat_id, [])
-        max_docs = 2  # ограничим количеством документов
+        max_docs = MAX_KB_DOCS  # ограничим количеством документов
 
         for i, doc in enumerate(selected[:max_docs]):
             try:
