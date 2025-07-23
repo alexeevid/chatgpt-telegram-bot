@@ -2,17 +2,22 @@ import hashlib
 from typing import Iterator, Tuple
 import requests
 from xml.etree import ElementTree as ET
+from urllib.parse import quote
 
 class YandexDiskClient:
-    """Минималистичный WebDAV клиент для Яндекс.Диска."""
     def __init__(self, token: str, base_url: str = "https://webdav.yandex.ru"):
-        self.base_url = base_url.rstrip("/")            # убираем хвостовой /
+        self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
         self.session.headers.update({"Authorization": f"OAuth {token}"})
 
     def _full(self, path: str) -> str:
+        # нормализуем
+        if path.startswith("disk:"):
+            path = path[5:]
         if not path.startswith("/"):
-            path = "/" + path                           # добавляем ведущий /
+            path = "/" + path
+        # кодируем (кроме /)
+        path = quote(path, safe="/")
         return f"{self.base_url}{path}"
 
     def iter_files(self, root_path: str) -> Iterator[Tuple[str, int]]:
