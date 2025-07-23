@@ -29,6 +29,7 @@ from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicato
 from openai_helper import OpenAIHelper, localized_text
 from usage_tracker import UsageTracker
 from db import AsyncSessionLocal
+from datetime import datetime
 
 class ChatGPTTelegramBot:
     """
@@ -42,6 +43,7 @@ class ChatGPTTelegramBot:
         :param openai: OpenAIHelper object
         """
         self.config = config
+        self.start_time = datetime.now()
         self.openai = openai
         bot_language = self.config['bot_language']
         self.commands = [
@@ -460,8 +462,21 @@ class ChatGPTTelegramBot:
             f"— 📄 Файлов в /kb: `{MAX_KB_FILES_DISPLAY}`\n"
             f"— 🧠 max_tokens: `{MAX_TOKENS}` | temp: `{TEMPERATURE}` | top_p: `{TOP_P}`\n"
             f"— 📤 Ограничение Telegram: `{TELEGRAM_MESSAGE_LIMIT}` символов"
+            )
+            # Дополнительно: модель, дата запуска, версия
+        model_name = self.chat_model.get(chat_id, self.config.get("default_model", "gpt-3.5-turbo"))
+        bot_version = self.config.get("version", "не указана")
+        start_time = getattr(self, "start_time", None)
+        if start_time:
+            from datetime import datetime
+            uptime = datetime.now() - start_time
+            uptime_str = str(uptime).split('.')[0]  # обрезаем микросекунды
+            limits_info += f"\n— ⏱ Аптайм: `{uptime_str}`"
+        limits_info += (
+            f"\n— 🔧 Модель чата: `{model_name}`"
+            f"\n— 🆙 Версия бота: `{bot_version}`"
         )
-    
+
         # 🧾 Соберём всё вместе
         usage_text = text_current_conversation + text_today + text_month + text_budget + limits_info
     
