@@ -1,35 +1,64 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import logging
 import os
-import io
-# telegram_bot.py  (самый верх)
-from file_utils import extract_text, list_knowledge_base   # ← добавляем сюда
+from datetime import datetime
 from uuid import uuid4
-from telegram import BotCommandScopeAllGroupChats, Update, constants
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResultArticle
-from telegram import InputTextMessageContent, BotCommand
-from telegram.error import RetryAfter, TimedOut, BadRequest
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, \
-    filters, InlineQueryHandler, CallbackQueryHandler, Application, ContextTypes, CallbackContext
-
-from pydub import AudioSegment
-from PIL import Image
-from file_utils import extract_text
-from file_utils import list_knowledge_base
 from html import escape
-from telegram.error import BadRequest
-from limits import MAX_KB_DOCS, MAX_KB_FILES_DISPLAY
 
-from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicator, split_into_chunks, \
-    edit_message_with_retry, get_stream_cutoff_values, is_allowed, get_remaining_budget, is_admin, is_within_budget, \
-    get_reply_to_message_id, add_chat_request_to_usage_tracker, error_handler, is_direct_result, handle_direct_result, \
-    cleanup_intermediate_files
+from telegram import (
+    Update,
+    constants,
+    BotCommand,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    InlineQueryResultArticle,
+    InputTextMessageContent,
+    BotCommandScopeAllGroupChats
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    Application,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    InlineQueryHandler,
+    ContextTypes,
+    CallbackContext,
+    filters
+)
+from telegram.error import RetryAfter, TimedOut, BadRequest
+
+from file_utils import extract_text, list_knowledge_base
+from limits import MAX_KB_DOCS, MAX_KB_FILES_DISPLAY
 from openai_helper import OpenAIHelper, localized_text
 from usage_tracker import UsageTracker
 from db import AsyncSessionLocal
-from datetime import datetime
+
+from utils import (
+    is_group_chat,
+    get_thread_id,
+    message_text,
+    wrap_with_indicator,
+    split_into_chunks,
+    edit_message_with_retry,
+    get_stream_cutoff_values,
+    is_allowed,
+    get_remaining_budget,
+    is_admin,
+    is_within_budget,
+    get_reply_to_message_id,
+    add_chat_request_to_usage_tracker,
+    error_handler,
+    is_direct_result,
+    handle_direct_result,
+    cleanup_intermediate_files
+)
+
+from PIL import Image
+from pydub import AudioSegment
 
 class ChatGPTTelegramBot:
     """
@@ -73,6 +102,8 @@ class ChatGPTTelegramBot:
         self.last_message = {}
         self.inline_queries_cache = {}
         self.temp_selected_documents = {}
+        self.awaiting_password_filter = lambda user_id: user_id in awaiting_pdf_passwords
+
 
         # Инициализация выбранных пользователем файлов из Базы Знаний
         self.selected_documents = {}
@@ -146,7 +177,13 @@ class ChatGPTTelegramBot:
             filters.VIDEO | filters.VIDEO_NOTE | filters.Document.VIDEO,
             self.transcribe
         ))
-    
+        
+        # 🔐 Ввод пароля для защищённых PDF
+            application.add_handler(MessageHandler(
+                filters.TEXT & filters.ALL,
+                self.handle_password_input
+            ))
+        
         # ⚠️ Обработчик ошибок
         application.add_error_handler(error_handler)        
     
@@ -253,20 +290,26 @@ class ChatGPTTelegramBot:
             await message.reply_text("⚠️ Не удалось загрузить базу знаний. Проверь токен или путь.")
 
     async def handle_password_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Обработка ввода пароля от пользователя, если он ранее открыл PDF с защитой.
+        """
         user_id = update.effective_user.id
-        password = update.message.text.strip()
-        
-        from file_utils import get_awaiting_password_file, clear_awaiting_password, extract_text_from_encrypted_pdf
+        message = update.message
     
         file_path = get_awaiting_password_file(user_id)
         if not file_path:
-            await update.message.reply_text("⚠️ Нет ожидающего файла для ввода пароля.")
+            await message.reply_text("⚠️ Нет ожидающих файлов для ввода пароля.")
             return
     
-        text = extract_text_from_encrypted_pdf(file_path, password)
-        clear_awaiting_password(user_id)
+        password = message.text.strip()
+        result = extract_text_from_encrypted_pdf(file_path, password)
     
-        await update.message.reply_text(text[:4000] if text else "⚠️ Не удалось извлечь текст.")
+        if result.startswith("⚠️ Неверный пароль"):
+            await message.reply_text(result)
+            return
+    
+        clear_awaiting_password(user_id)
+        await message.reply_text(f"🔓 Расшифрованный текст:\n\n{result[:4000]}")
     
     async def handle_kb_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
