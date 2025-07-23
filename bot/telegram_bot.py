@@ -263,16 +263,17 @@ class ChatGPTTelegramBot:
         logging.warning(">>> Команда /kb вызвана")
         try:
             kb_root  = os.getenv("YANDEX_ROOT_PATH", "/knowledge_base")
+            if kb_root.startswith("disk:"):
+                kb_root = kb_root[5:]
             if not kb_root.startswith("/"):
                 kb_root = "/" + kb_root
-    
-            token    = os.getenv("YANDEX_DISK_TOKEN")
+            
             base_url = os.getenv("YANDEX_DISK_WEBDAV_URL", "https://webdav.yandex.ru").rstrip("/")
-    
+            token    = os.getenv("YANDEX_DISK_TOKEN")
             if not token:
                 await update.message.reply_text("Не задан YANDEX_DISK_TOKEN")
                 return
-    
+            
             logging.debug("YD base_url=%s, root=%s", base_url, kb_root)
     
             yd = YandexDiskClient(token=token, base_url=base_url)
@@ -281,11 +282,11 @@ class ChatGPTTelegramBot:
             if not files:
                 await update.message.reply_text("В базе знаний нет файлов.")
                 return
-    
+            
             reply = "Файлы в базе знаний:\n" + "\n".join(f"- {p}" for p in files[:30])
             if len(files) > 30:
                 reply += f"\n… и ещё {len(files) - 30}"
-    
+            
             await update.message.reply_text(reply)
     
         except requests.exceptions.RequestException as e:
