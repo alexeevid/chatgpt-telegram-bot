@@ -10,7 +10,7 @@ import base64
 import telegram
 from telegram import Message, MessageEntity, Update, ChatMember, constants
 from telegram.ext import CallbackContext, ContextTypes
-
+from limits import TELEGRAM_MESSAGE_LIMIT
 from usage_tracker import UsageTracker
 
 
@@ -76,7 +76,7 @@ def is_group_chat(update: Update) -> bool:
     ]
 
 
-def split_into_chunks(text: str, chunk_size: int = 4096) -> list[str]:
+def split_into_chunks(text: str, chunk_size: int = TELEGRAM_MESSAGE_LIMIT) -> list[str]:
     """
     Splits a string into chunks of a given size.
     """
