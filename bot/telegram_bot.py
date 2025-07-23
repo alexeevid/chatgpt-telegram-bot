@@ -353,6 +353,17 @@ class ChatGPTTelegramBot:
                 f"Ошибка при получении списка моделей: {str(e)}"
             )
 
+    from telegram import constants
+    
+    from limits import (
+        MAX_KB_DOCS,
+        MAX_KB_FILES_DISPLAY,
+        MAX_TOKENS,
+        TELEGRAM_MESSAGE_LIMIT,
+        TEMPERATURE,
+        TOP_P,
+    )
+    
     async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Returns token usage statistics for current day and month.
@@ -362,84 +373,77 @@ class ChatGPTTelegramBot:
                             'is not allowed to request their usage statistics')
             await self.send_disallowed_message(update, context)
             return
-
+    
         logging.info(f'User {update.message.from_user.name} (id: {update.message.from_user.id}) '
                      'requested their usage statistics')
-
+    
         user_id = update.message.from_user.id
         if user_id not in self.usage:
             self.usage[user_id] = UsageTracker(user_id, update.message.from_user.name)
-
+    
         tokens_today, tokens_month = self.usage[user_id].get_current_token_usage()
         images_today, images_month = self.usage[user_id].get_current_image_count()
-        (transcribe_minutes_today, transcribe_seconds_today, transcribe_minutes_month,
-         transcribe_seconds_month) = self.usage[user_id].get_current_transcription_duration()
+        (
+            transcribe_minutes_today, transcribe_seconds_today,
+            transcribe_minutes_month, transcribe_seconds_month
+        ) = self.usage[user_id].get_current_transcription_duration()
         vision_today, vision_month = self.usage[user_id].get_current_vision_tokens()
         characters_today, characters_month = self.usage[user_id].get_current_tts_usage()
         current_cost = self.usage[user_id].get_current_cost()
-
+    
         chat_id = update.effective_chat.id
         chat_messages, chat_token_length = self.openai.get_conversation_stats(chat_id)
         remaining_budget = get_remaining_budget(self.config, self.usage, update)
         bot_language = self.config['bot_language']
-        
+    
+        # 🔸 Текущий диалог
         text_current_conversation = (
             f"*{localized_text('stats_conversation', bot_language)[0]}*:\n"
             f"{chat_messages} {localized_text('stats_conversation', bot_language)[1]}\n"
             f"{chat_token_length} {localized_text('stats_conversation', bot_language)[2]}\n"
             "----------------------------\n"
         )
-        
-        # Check if image generation is enabled and, if so, generate the image statistics for today
-        text_today_images = ""
-        if self.config.get('enable_image_generation', False):
-            text_today_images = f"{images_today} {localized_text('stats_images', bot_language)}\n"
-
-        text_today_vision = ""
-        if self.config.get('enable_vision', False):
-            text_today_vision = f"{vision_today} {localized_text('stats_vision', bot_language)}\n"
-
-        text_today_tts = ""
-        if self.config.get('enable_tts_generation', False):
-            text_today_tts = f"{characters_today} {localized_text('stats_tts', bot_language)}\n"
-        
+    
+        # 🔸 Статистика за сегодня
         text_today = (
             f"*{localized_text('usage_today', bot_language)}:*\n"
             f"{tokens_today} {localized_text('stats_tokens', bot_language)}\n"
-            f"{text_today_images}"  # Include the image statistics for today if applicable
-            f"{text_today_vision}"
-            f"{text_today_tts}"
+        )
+    
+        if self.config.get('enable_image_generation', False):
+            text_today += f"{images_today} {localized_text('stats_images', bot_language)}\n"
+        if self.config.get('enable_vision', False):
+            text_today += f"{vision_today} {localized_text('stats_vision', bot_language)}\n"
+        if self.config.get('enable_tts_generation', False):
+            text_today += f"{characters_today} {localized_text('stats_tts', bot_language)}\n"
+    
+        text_today += (
             f"{transcribe_minutes_today} {localized_text('stats_transcribe', bot_language)[0]} "
             f"{transcribe_seconds_today} {localized_text('stats_transcribe', bot_language)[1]}\n"
             f"{localized_text('stats_total', bot_language)}{current_cost['cost_today']:.2f}\n"
             "----------------------------\n"
         )
-        
-        text_month_images = ""
-        if self.config.get('enable_image_generation', False):
-            text_month_images = f"{images_month} {localized_text('stats_images', bot_language)}\n"
-
-        text_month_vision = ""
-        if self.config.get('enable_vision', False):
-            text_month_vision = f"{vision_month} {localized_text('stats_vision', bot_language)}\n"
-
-        text_month_tts = ""
-        if self.config.get('enable_tts_generation', False):
-            text_month_tts = f"{characters_month} {localized_text('stats_tts', bot_language)}\n"
-        
-        # Check if image generation is enabled and, if so, generate the image statistics for the month
+    
+        # 🔸 Статистика за месяц
         text_month = (
             f"*{localized_text('usage_month', bot_language)}:*\n"
             f"{tokens_month} {localized_text('stats_tokens', bot_language)}\n"
-            f"{text_month_images}"  # Include the image statistics for the month if applicable
-            f"{text_month_vision}"
-            f"{text_month_tts}"
+        )
+    
+        if self.config.get('enable_image_generation', False):
+            text_month += f"{images_month} {localized_text('stats_images', bot_language)}\n"
+        if self.config.get('enable_vision', False):
+            text_month += f"{vision_month} {localized_text('stats_vision', bot_language)}\n"
+        if self.config.get('enable_tts_generation', False):
+            text_month += f"{characters_month} {localized_text('stats_tts', bot_language)}\n"
+    
+        text_month += (
             f"{transcribe_minutes_month} {localized_text('stats_transcribe', bot_language)[0]} "
             f"{transcribe_seconds_month} {localized_text('stats_transcribe', bot_language)[1]}\n"
             f"{localized_text('stats_total', bot_language)}{current_cost['cost_month']:.2f}"
         )
-
-        # text_budget filled with conditional content
+    
+        # 🔸 Информация о бюджете
         text_budget = "\n\n"
         budget_period = self.config['budget_period']
         if remaining_budget < float('inf'):
@@ -448,17 +452,20 @@ class ChatGPTTelegramBot:
                 f"{localized_text(budget_period, bot_language)}: "
                 f"${remaining_budget:.2f}.\n"
             )
-        # No longer works as of July 21st 2023, as OpenAI has removed the billing API
-        # add OpenAI account information for admin request
-        # if is_admin(self.config, user_id):
-        #     text_budget += (
-        #         f"{localized_text('stats_openai', bot_language)}"
-        #         f"{self.openai.get_billing_current_month():.2f}"
-        #     )
-
-        usage_text = text_current_conversation + text_today + text_month + text_budget
+    
+        # 🔸 Новое: лимиты и настройки
+        limits_info = (
+            f"\n\n*📊 Лимиты и настройки:*\n"
+            f"— 📚 Документов в контексте: `{MAX_KB_DOCS}`\n"
+            f"— 📄 Файлов в /kb: `{MAX_KB_FILES_DISPLAY}`\n"
+            f"— 🧠 max_tokens: `{MAX_TOKENS}` | temp: `{TEMPERATURE}` | top_p: `{TOP_P}`\n"
+            f"— 📤 Ограничение Telegram: `{TELEGRAM_MESSAGE_LIMIT}` символов"
+        )
+    
+        # 🧾 Соберём всё вместе
+        usage_text = text_current_conversation + text_today + text_month + text_budget + limits_info
+    
         await update.message.reply_text(usage_text, parse_mode=constants.ParseMode.MARKDOWN)
-
     
     async def resend(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
