@@ -5,10 +5,18 @@ import os
 import asyncio
 from dotenv import load_dotenv
 
-from plugin_manager import PluginManager
-from openai_helper import OpenAIHelper, default_max_tokens, are_functions_available
-from telegram_bot import ChatGPTTelegramBot
-from db import engine, Base  # подключаем ORM
+from bot.plugin_manager import PluginManager
+from bot.openai_helper import OpenAIHelper, default_max_tokens, are_functions_available
+from bot.telegram_bot import ChatGPTTelegramBot
+from bot.db import engine, Base
+
+# KB / RAG imports
+from bot.knowledge_base.embedder import Embedder
+from bot.knowledge_base.vector_store import VectorStore
+from bot.knowledge_base.retriever import Retriever
+from bot.knowledge_base.yandex_client import YandexDiskClient
+from bot.knowledge_base.context_manager import ContextManager
+
 from telegram.ext import Application  # добавлено
 from telegram import BotCommandScopeAllPrivateChats, BotCommandScopeAllGroupChats  # добавлено
 
