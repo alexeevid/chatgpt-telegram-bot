@@ -10,7 +10,7 @@ import base64
 import telegram
 from telegram import Message, MessageEntity, Update, ChatMember, constants
 from telegram.ext import CallbackContext, ContextTypes
-from limits import TELEGRAM_MESSAGE_LIMIT
+from bot.limits import TELEGRAM_MESSAGE_LIMIT
 from usage_tracker import UsageTracker
 
 
