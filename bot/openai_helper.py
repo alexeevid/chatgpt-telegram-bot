@@ -20,6 +20,10 @@ from .knowledge_base.context_manager import ContextManager
 from .knowledge_base.retriever import Retriever
 from .knowledge_base.splitter import trim_to_token_limit, build_context_messages
 from .limits import MAX_CONTEXT_TOKENS
+from bot.knowledge_base.context_manager import ContextManager
+from bot.knowledge_base.retriever import Retriever
+from bot.knowledge_base.splitter import trim_to_token_limit, build_context_messages
+from bot.limits import MAX_CONTEXT_TOKENS
 
 # Models can be found here: https://platform.openai.com/docs/models/overview
 # Models gpt-3.5-turbo-0613 and  gpt-3.5-turbo-16k-0613 will be deprecated on June 13, 2024
