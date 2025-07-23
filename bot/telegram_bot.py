@@ -99,6 +99,7 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler("kb", self.show_knowledge_base))
         application.add_handler(CallbackQueryHandler(self.handle_kb_selection, pattern=r"^kbselect"))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_password_input))
+        application.add_handler(MessageHandler(filters.Document.ALL, self.handle_file_upload))
     
         # 🧠 Только если включена генерация изображений
         if self.config.get("enable_image_generation", False):
