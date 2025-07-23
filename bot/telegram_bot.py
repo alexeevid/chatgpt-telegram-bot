@@ -263,24 +263,21 @@ class ChatGPTTelegramBot:
             parse_mode=constants.ParseMode.MARKDOWN
         )
         
-    async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-        """
-        Shows the help menu.
-        """
-        commands = self.group_commands if is_group_chat(update) else self.commands
-        commands_description = [f'/{command.command} - {command.description}' for command in commands]
-        bot_language = self.config['bot_language']
-        help_text = (
-                localized_text('help_text', bot_language)[0] +
-                '\n\n' +
-                '\n'.join(commands_description) +
-                '\n\n' +
-                localized_text('help_text', bot_language)[1] +
-                '\n\n' +
-                localized_text('help_text', bot_language)[2]
-        )
-        await update.message.reply_text(help_text, disable_web_page_preview=True)
-
+    async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        logging.info("/help triggered")
+        message = update.message or (update.callback_query.message if update.callback_query else None)
+        if not message:
+            logging.warning("No message object in help handler")
+            return
+    
+        bot_language = self.config.get('bot_language', 'en')
+    
+        help_text = localized_text('help', bot_language)
+        if isinstance(help_text, list):
+            help_text = help_text[0]  # выбираем нужный язык
+    
+        await message.reply_text(help_text, parse_mode=constants.ParseMode.MARKDOWN)
+        
     async def set_model(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Команда /set_model — выбор модели через кнопки Telegram.
@@ -367,120 +364,63 @@ class ChatGPTTelegramBot:
     )
     
     async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        Returns token usage statistics for current day and month.
-        """
+        message = update.message or (update.callback_query.message if update.callback_query else None)
+        if not message:
+            logging.warning("No message object in stats handler")
+            return
+    
         if not await is_allowed(self.config, update, context):
-            logging.warning(f'User {update.message.from_user.name} (id: {update.message.from_user.id}) '
-                            'is not allowed to request their usage statistics')
+            logging.warning(f"User {message.from_user.name} (id: {message.from_user.id}) not allowed for /stats")
             await self.send_disallowed_message(update, context)
             return
     
-        logging.info(f'User {update.message.from_user.name} (id: {update.message.from_user.id}) '
-                     'requested their usage statistics')
+        logging.info(f"User {message.from_user.name} (id: {message.from_user.id}) requested /stats")
     
-        user_id = update.message.from_user.id
+        user_id = message.from_user.id
         if user_id not in self.usage:
-            self.usage[user_id] = UsageTracker(user_id, update.message.from_user.name)
+            self.usage[user_id] = UsageTracker(user_id, message.from_user.name)
     
         tokens_today, tokens_month = self.usage[user_id].get_current_token_usage()
         images_today, images_month = self.usage[user_id].get_current_image_count()
-        (
-            transcribe_minutes_today, transcribe_seconds_today,
-            transcribe_minutes_month, transcribe_seconds_month
-        ) = self.usage[user_id].get_current_transcription_duration()
+        (tr_min_t, tr_sec_t, tr_min_m, tr_sec_m) = self.usage[user_id].get_current_transcription_duration()
         vision_today, vision_month = self.usage[user_id].get_current_vision_tokens()
-        characters_today, characters_month = self.usage[user_id].get_current_tts_usage()
+        chars_today, chars_month = self.usage[user_id].get_current_tts_usage()
         current_cost = self.usage[user_id].get_current_cost()
     
         chat_id = update.effective_chat.id
         chat_messages, chat_token_length = self.openai.get_conversation_stats(chat_id)
-        remaining_budget = get_remaining_budget(self.config, self.usage, update)
         bot_language = self.config['bot_language']
     
-        # 🔸 Текущий диалог
-        text_current_conversation = (
-            f"*{localized_text('stats_conversation', bot_language)[0]}*:\n"
-            f"{chat_messages} {localized_text('stats_conversation', bot_language)[1]}\n"
-            f"{chat_token_length} {localized_text('stats_conversation', bot_language)[2]}\n"
+        lt = lambda key: localized_text(key, bot_language)
+    
+        usage_text = (
+            f"*{lt('stats_conversation')[0]}*:\n"
+            f"{chat_messages} {lt('stats_conversation')[1]}\n"
+            f"{chat_token_length} {lt('stats_conversation')[2]}\n"
             "----------------------------\n"
-        )
-    
-        # 🔸 Статистика за сегодня
-        text_today = (
-            f"*{localized_text('usage_today', bot_language)}:*\n"
-            f"{tokens_today} {localized_text('stats_tokens', bot_language)}\n"
-        )
-    
-        if self.config.get('enable_image_generation', False):
-            text_today += f"{images_today} {localized_text('stats_images', bot_language)}\n"
-        if self.config.get('enable_vision', False):
-            text_today += f"{vision_today} {localized_text('stats_vision', bot_language)}\n"
-        if self.config.get('enable_tts_generation', False):
-            text_today += f"{characters_today} {localized_text('stats_tts', bot_language)}\n"
-    
-        text_today += (
-            f"{transcribe_minutes_today} {localized_text('stats_transcribe', bot_language)[0]} "
-            f"{transcribe_seconds_today} {localized_text('stats_transcribe', bot_language)[1]}\n"
-            f"{localized_text('stats_total', bot_language)}{current_cost['cost_today']:.2f}\n"
+            f"*{lt('usage_today')}:*\n"
+            f"{tokens_today} {lt('stats_tokens')}\n"
+            f"{images_today} {lt('stats_images')}\n" if self.config.get('enable_image_generation') else ""
+            f"{vision_today} {lt('stats_vision')}\n" if self.config.get('enable_vision') else ""
+            f"{chars_today} {lt('stats_tts')}\n" if self.config.get('enable_tts_generation') else ""
+            f"{tr_min_t} {lt('stats_transcribe')[0]} {tr_sec_t} {lt('stats_transcribe')[1]}\n"
+            f"{lt('stats_total')}{current_cost['cost_today']:.2f}\n"
             "----------------------------\n"
+            f"*{lt('usage_month')}:*\n"
+            f"{tokens_month} {lt('stats_tokens')}\n"
+            f"{images_month} {lt('stats_images')}\n" if self.config.get('enable_image_generation') else ""
+            f"{vision_month} {lt('stats_vision')}\n" if self.config.get('enable_vision') else ""
+            f"{chars_month} {lt('stats_tts')}\n" if self.config.get('enable_tts_generation') else ""
+            f"{tr_min_m} {lt('stats_transcribe')[0]} {tr_sec_m} {lt('stats_transcribe')[1]}\n"
+            f"{lt('stats_total')}{current_cost['cost_month']:.2f}\n"
         )
     
-        # 🔸 Статистика за месяц
-        text_month = (
-            f"*{localized_text('usage_month', bot_language)}:*\n"
-            f"{tokens_month} {localized_text('stats_tokens', bot_language)}\n"
-        )
-    
-        if self.config.get('enable_image_generation', False):
-            text_month += f"{images_month} {localized_text('stats_images', bot_language)}\n"
-        if self.config.get('enable_vision', False):
-            text_month += f"{vision_month} {localized_text('stats_vision', bot_language)}\n"
-        if self.config.get('enable_tts_generation', False):
-            text_month += f"{characters_month} {localized_text('stats_tts', bot_language)}\n"
-    
-        text_month += (
-            f"{transcribe_minutes_month} {localized_text('stats_transcribe', bot_language)[0]} "
-            f"{transcribe_seconds_month} {localized_text('stats_transcribe', bot_language)[1]}\n"
-            f"{localized_text('stats_total', bot_language)}{current_cost['cost_month']:.2f}"
-        )
-    
-        # 🔸 Информация о бюджете
-        text_budget = "\n\n"
-        budget_period = self.config['budget_period']
+        remaining_budget = get_remaining_budget(self.config, self.usage, update)
+        budget_period = self.config.get('budget_period')
         if remaining_budget < float('inf'):
-            text_budget += (
-                f"{localized_text('stats_budget', bot_language)}"
-                f"{localized_text(budget_period, bot_language)}: "
-                f"${remaining_budget:.2f}.\n"
-            )
+            usage_text += f"\n\n{lt('stats_budget')}{lt(budget_period)}: ${remaining_budget:.2f}."
     
-        # 🔸 Новое: лимиты и настройки
-        limits_info = (
-            f"\n\n*📊 Лимиты и настройки:*\n"
-            f"— 📚 Документов в контексте: `{MAX_KB_DOCS}`\n"
-            f"— 📄 Файлов в /kb: `{MAX_KB_FILES_DISPLAY}`\n"
-            f"— 🧠 max_tokens: `{MAX_TOKENS}` | temp: `{TEMPERATURE}` | top_p: `{TOP_P}`\n"
-            f"— 📤 Ограничение Telegram: `{TELEGRAM_MESSAGE_LIMIT}` символов"
-            )
-            # Дополнительно: модель, дата запуска, версия
-        model_name = self.chat_model.get(chat_id, self.config.get("default_model", "gpt-3.5-turbo"))
-        bot_version = self.config.get("version", "не указана")
-        start_time = getattr(self, "start_time", None)
-        if start_time:
-            from datetime import datetime
-            uptime = datetime.now() - start_time
-            uptime_str = str(uptime).split('.')[0]  # обрезаем микросекунды
-            limits_info += f"\n— ⏱ Аптайм: `{uptime_str}`"
-        limits_info += (
-            f"\n— 🔧 Модель чата: `{model_name}`"
-            f"\n— 🆙 Версия бота: `{bot_version}`"
-        )
-
-        # 🧾 Соберём всё вместе
-        usage_text = text_current_conversation + text_today + text_month + text_budget + limits_info
-    
-        await update.message.reply_text(usage_text, parse_mode=constants.ParseMode.MARKDOWN)
+        await message.reply_text(usage_text, parse_mode=constants.ParseMode.MARKDOWN)
     
     async def resend(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
