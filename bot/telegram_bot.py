@@ -33,7 +33,7 @@ from telegram.error import RetryAfter, TimedOut, BadRequest
 
 from file_utils import extract_text, list_knowledge_base
 from limits import MAX_KB_DOCS, MAX_KB_FILES_DISPLAY
-from openai_helper import OpenAIHelper, localized_text
+from bot.openai_helper import OpenAIHelper, localized_text
 from usage_tracker import UsageTracker
 from db import AsyncSessionLocal
 
