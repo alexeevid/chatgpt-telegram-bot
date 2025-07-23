@@ -2,26 +2,39 @@ import io
 import pandas as pd
 import os
 import requests
+import logging
 
-YANDEX_DISK_API = 'https://cloud-api.yandex.net/v1/disk/resources'
+YANDEX_DISK_API = "https://cloud-api.yandex.net/v1/disk/resources"
 
 def list_knowledge_base():
     token = os.getenv("YANDEX_TOKEN")
     path = os.getenv("YANDEX_KB_PATH", "/База Знаний")
-    logging.warning(f"[KB] Используем токен: {token[:5]}... и путь: {path}")
 
-    headers = {"Authorization": f"OAuth {token}"}
-    params = {"path": path}
+    logging.warning(f"[KB] Токен: {'OK' if token else 'MISSING'} | Путь: {path}")
 
-    response = requests.get(YANDEX_DISK_API, headers=headers, params=params)
-    logging.warning(f"[KB] Ответ от Яндекса: {response.status_code}")
-    response.raise_for_status()
+    headers = {
+        "Authorization": f"OAuth {token}"
+    }
+    params = {
+        "path": path
+    }
 
-    data = response.json()
-    items = data.get('_embedded', {}).get('items', [])
-    logging.warning(f"[KB] Найдено файлов: {len(items)}")
+    try:
+        response = requests.get(YANDEX_DISK_API, headers=headers, params=params)
+        logging.warning(f"[KB] Ответ от Яндекс.Диска: {response.status_code}")
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logging.exception(f"[KB] Ошибка при обращении к Яндекс.Диску: {e}")
+        raise
 
-    return [item['name'] for item in items if item['type'] == 'file']
+    try:
+        data = response.json()
+        items = data.get('_embedded', {}).get('items', [])
+        logging.warning(f"[KB] Найдено файлов: {len(items)}")
+        return [item['name'] for item in items if item['type'] == 'file']
+    except Exception as e:
+        logging.exception(f"[KB] Ошибка при обработке ответа от API: {e}")
+        raise
 
 def extract_text(fileobj: io.BytesIO, filename: str) -> str:
     filename = filename.lower()
