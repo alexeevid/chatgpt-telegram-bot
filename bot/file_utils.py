@@ -6,6 +6,7 @@ import logging
 # Глобальный словарь ожидания паролей для пользователей
 awaiting_pdf_passwords = {}
 
+
 def list_knowledge_base(root_folder: str) -> list[str]:
     files = []
     for dirpath, _, filenames in os.walk(root_folder):
@@ -13,7 +14,9 @@ def list_knowledge_base(root_folder: str) -> list[str]:
             if f.lower().endswith(('.pdf', '.txt', '.md')):
                 full_path = os.path.join(dirpath, f)
                 files.append(full_path)
+    logging.info(f"[KB] Найдено {len(files)} файлов в базе знаний по пути: {root_folder}")
     return files
+
 
 def extract_text(file_path: str) -> str:
     try:
@@ -27,7 +30,9 @@ def extract_text(file_path: str) -> str:
             with open(file_path, "r", encoding="utf-8") as file:
                 return file.read()
     except Exception as e:
+        logging.exception(f"[KB] Ошибка при чтении файла: {file_path}")
         return f"⚠️ Ошибка при чтении файла: {e}"
+
 
 def extract_text_from_encrypted_pdf(file_path: str, password: str) -> str:
     try:
@@ -48,11 +53,14 @@ def extract_text_from_encrypted_pdf(file_path: str, password: str) -> str:
         logging.exception(f"[PDF] Ошибка при чтении PDF: {file_path} — {e}")
         return f"⚠️ Ошибка при чтении PDF: {e}"
 
+
 def set_awaiting_password(user_id: int, file_path: str):
     awaiting_pdf_passwords[user_id] = file_path
 
+
 def get_awaiting_password_file(user_id: int) -> Optional[str]:
     return awaiting_pdf_passwords.get(user_id)
+
 
 def clear_awaiting_password(user_id: int):
     awaiting_pdf_passwords.pop(user_id, None)
