@@ -6,13 +6,17 @@ from xml.etree import ElementTree as ET
 class YandexDiskClient:
     """Минималистичный WebDAV клиент для Яндекс.Диска."""
     def __init__(self, token: str, base_url: str = "https://webdav.yandex.ru"):
-        self.base_url = base_url.rstrip("/")
+        self.base_url = base_url.rstrip("/")            # убираем хвостовой /
         self.session = requests.Session()
         self.session.headers.update({"Authorization": f"OAuth {token}"})
 
+    def _full(self, path: str) -> str:
+        if not path.startswith("/"):
+            path = "/" + path                           # добавляем ведущий /
+        return f"{self.base_url}{path}"
+
     def iter_files(self, root_path: str) -> Iterator[Tuple[str, int]]:
-        """Рекурсивно вернуть (remote_path, size). root_path начинается с '/'."""
-        url = f"{self.base_url}{root_path}"
+        url = self._full(root_path)
         resp = self.session.request("PROPFIND", url, headers={"Depth": "infinity"})
         resp.raise_for_status()
         ns = {'d': 'DAV:'}
@@ -26,7 +30,7 @@ class YandexDiskClient:
             yield href, size
 
     def download(self, remote_path: str) -> bytes:
-        url = f"{self.base_url}{remote_path}"
+        url = self._full(remote_path)
         r = self.session.get(url)
         r.raise_for_status()
         return r.content
