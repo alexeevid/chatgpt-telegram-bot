@@ -16,6 +16,10 @@ from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_t
 
 from utils import is_direct_result, encode_image, decode_image
 from plugin_manager import PluginManager
+from .knowledge_base.context_manager import ContextManager
+from .knowledge_base.retriever import Retriever
+from .knowledge_base.splitter import trim_to_token_limit, build_context_messages
+from .limits import MAX_CONTEXT_TOKENS
 
 # Models can be found here: https://platform.openai.com/docs/models/overview
 # Models gpt-3.5-turbo-0613 and  gpt-3.5-turbo-16k-0613 will be deprecated on June 13, 2024
@@ -98,6 +102,8 @@ class OpenAIHelper:
     """
 
     def __init__(self, config: dict, plugin_manager: PluginManager):
+        self.ctx_manager = ContextManager()
+        self.retriever: Retriever|None = None
         """
         Initializes the OpenAI helper class with the given configuration.
         :param config: A dictionary containing the GPT configuration
@@ -738,3 +744,6 @@ class OpenAIHelper:
     #     billing_data = json.loads(response.text)
     #     usage_month = billing_data["total_usage"] / 100  # convert cent amount to dollars
     #     return usage_month
+
+    def set_retriever(self, retriever: Retriever):
+        self.retriever = retriever

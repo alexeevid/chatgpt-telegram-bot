@@ -145,3 +145,11 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+# --- KB commands placeholders ---
+# Add handlers in your telegram dispatcher:
+# /reset -> context_manager.reset(chat_id)
+# /reindex -> trigger reindex coroutine
+# /kb <query> -> retriever.search(query)
+# /pdfpass <filename> <password> -> store password for that file in session

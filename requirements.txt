@@ -20,3 +20,11 @@ alembic
 asyncpg
 requests
 PyPDF2>=3.0.0
+
+faiss-cpu
+pypdf
+python-pptx
+docx2txt
+pandas
+tiktoken
+requests

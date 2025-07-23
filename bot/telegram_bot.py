@@ -1548,3 +1548,50 @@ class ChatGPTTelegramBot:
 
         # 5) Запускаем polling (единственный раз)
         application.run_polling()
+
+
+# ==== Knowledge Base handlers (injected) ====
+from .knowledge_base.reindexer import reindex as kb_reindex
+from .knowledge_base.yandex_client import YandexDiskClient
+from .knowledge_base.context_manager import ContextManager
+from .knowledge_base.retriever import Retriever
+from .knowledge_base.embedder import Embedder
+from .knowledge_base.vector_store import VectorStore
+from .knowledge_base.splitter import build_context_messages
+
+pdf_passwords = {}
+ctx_manager = ContextManager()
+
+async def handle_reset(update, context):
+    chat_id = update.effective_chat.id
+    ctx_manager.reset(chat_id)
+    await update.message.reply_text("Контекст очищен.")
+
+async def handle_kb_search(update, context):
+    query = " ".join(context.args) if context.args else ""
+    if not query:
+        await update.message.reply_text("/kb <запрос>")
+        return
+    results = context.bot_data['retriever'].search(query, top_k=5)
+    txt = "\n\n".join([f"{i+1}. {r[:400]}..." for i, r in enumerate(results)]) or "Ничего не найдено"
+    await update.message.reply_text(txt)
+
+async def handle_pdfpass(update, context):
+    if len(context.args) < 2:
+        await update.message.reply_text("Используй: /pdfpass filename.pdf пароль")
+        return
+    fname = context.args[0]
+    pwd = " ".join(context.args[1:])
+    pdf_passwords[fname] = pwd
+    await update.message.reply_text("Пароль сохранён. Повтори индексацию или запрос.")
+
+async def handle_reindex(update, context):
+    await update.message.reply_text("Запускаю переиндексацию...")
+    yd = context.bot_data['yd']
+    store = context.bot_data['store']
+    emb = context.bot_data['embedder']
+    async def progress(step,total,file):
+        if step % 10 == 0:
+            await update.message.reply_text(f"{step}/{total}: {file}")
+    added,total_files = await kb_reindex(context.bot_data['root_path'], yd, store, emb, pdf_passwords, progress_cb=None)
+    await update.message.reply_text(f"Готово. Обработано файлов: {added}/{total_files}")
