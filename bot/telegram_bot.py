@@ -98,6 +98,7 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler("balance", self.balance))
         application.add_handler(CommandHandler("kb", self.show_knowledge_base))
         application.add_handler(CallbackQueryHandler(self.handle_kb_selection, pattern=r"^kbselect"))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_password_input))
     
         # 🧠 Только если включена генерация изображений
         if self.config.get("enable_image_generation", False):
@@ -158,6 +159,28 @@ class ChatGPTTelegramBot:
     #from file_utils import list_knowledge_base
     # Вверху файла (рядом с остальными импортами)
 
+    from file_utils import (
+        get_awaiting_password_file,
+        clear_awaiting_password,
+        extract_text_from_encrypted_pdf
+    )
+    
+    async def handle_password_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        password = update.message.text.strip()
+    
+        file_path = get_awaiting_password_file(user_id)
+        if not file_path:
+            return  # Не ожидаем пароль от этого пользователя
+    
+        text = extract_text_from_encrypted_pdf(file_path, password)
+    
+        if text.startswith("⚠️"):
+            await update.message.reply_text(text)
+        else:
+            clear_awaiting_password(user_id)
+            await update.message.reply_text(f"🔓 Файл расшифрован. Содержимое:\n\n{text[:3000]}")
+    
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
