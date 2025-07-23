@@ -224,49 +224,33 @@ class ChatGPTTelegramBot:
         await message.reply_text(f"✅ Контекст из *{file_name}* успешно загружен.", parse_mode=constants.ParseMode.MARKDOWN)
     
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
-        chat_id = update.effective_chat.id
         logging.warning(">>> Команда /kb вызвана")
-
-        try:
-            files = list_knowledge_base()
-        except Exception as e:
-            logging.exception("Ошибка при получении списка файлов из базы знаний")
-            await update.effective_message.reply_text("⚠️ Не удалось загрузить базу знаний. Проверь токен или путь.")
+        message = update.message or (update.callback_query.message if update.callback_query else None)
+    
+        if not await is_allowed(self.config, update, context):
+            logging.warning("Пользователь не разрешён")
+            await self.send_disallowed_message(update, context)
             return
-
-        if not files:
-            await update.effective_message.reply_text("⚠️ База знаний пуста.")
-            return
-
-        # Обрезаем количество файлов, чтобы не перегрузить Telegram
-        max_files = 20
-        files = files[:MAX_KB_FILES_DISPLAY]
-        logging.warning(f"[KB] Показываем первые {max_files} файлов")
-
-        # Сохраняем временный выбор
-        self.temp_selected_documents[chat_id] = set()
-        self.kb_file_map = {}  # храним соответствие короткого ID и полного имени файла
-
-        buttons = []
-        for filename in files:
-            from hashlib import md5
-            short_id = md5(filename.encode()).hexdigest()[:10]
-            self.kb_file_map[short_id] = filename
-            callback_data = f"kbselect:{short_id}"
-            buttons.append([InlineKeyboardButton(f"📄 {filename}", callback_data=callback_data)])
-
-        buttons.append([InlineKeyboardButton("✅ Готово", callback_data="kbselect_done")])
-
+    
         try:
-            await update.effective_message.reply_text(
-                "📚 Выберите документы для включения в контекст:",
-                reply_markup=InlineKeyboardMarkup(buttons)
-            )
+            kb_root = os.getenv("KB_ROOT_FOLDER", "knowledge_base")
+            files = list_knowledge_base(kb_root)
+    
+            if not files:
+                await message.reply_text("📂 База знаний пуста.")
+                return
+    
+            buttons = [
+                [InlineKeyboardButton(text=f, callback_data=f"kbselect:{f}")]
+                for f in files
+            ]
+    
+            reply_markup = InlineKeyboardMarkup(buttons)
+            await message.reply_text("📚 Выберите документ из базы знаний:", reply_markup=reply_markup)
+    
         except Exception as e:
-            logging.exception("Ошибка при выводе кнопок выбора /kb")
-            await context.bot.send_message(chat_id=chat_id, text="⚠️ Ошибка при выводе кнопок выбора.")
+            logging.error("Ошибка при получении списка файлов из базы знаний", exc_info=True)
+            await message.reply_text("⚠️ Не удалось загрузить базу знаний. Проверь токен или путь.")
 
     async def handle_password_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
