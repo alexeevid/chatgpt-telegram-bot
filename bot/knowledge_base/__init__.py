@@ -1,1 +1,1 @@
-# make 'bot' a package
+# make 'bot.knowledge_base' a package
