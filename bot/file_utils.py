@@ -1,6 +1,10 @@
 from PyPDF2 import PdfReader
 import os
 
+# Глобальный словарь ожидания паролей для пользователей
+awaiting_pdf_passwords = {}
+
+
 def list_knowledge_base(root_folder: str) -> list[str]:
     files = []
     for dirpath, _, filenames in os.walk(root_folder):
@@ -9,6 +13,7 @@ def list_knowledge_base(root_folder: str) -> list[str]:
                 full_path = os.path.join(dirpath, f)
                 files.append(full_path)
     return files
+
 
 def extract_text(file_path: str) -> str:
     try:
@@ -24,12 +29,14 @@ def extract_text(file_path: str) -> str:
     except Exception as e:
         return f"⚠️ Ошибка при чтении файла: {e}"
 
+
 def extract_text_from_encrypted_pdf(file_path: str, password: str) -> str:
     try:
         with open(file_path, "rb") as file:
             reader = PdfReader(file)
             if reader.is_encrypted:
-                if not reader.decrypt(password):
+                result = reader.decrypt(password)
+                if result != 1:
                     return "⚠️ Неверный пароль или не удалось расшифровать PDF."
 
             text = ""
@@ -38,3 +45,15 @@ def extract_text_from_encrypted_pdf(file_path: str, password: str) -> str:
             return text.strip()
     except Exception as e:
         return f"⚠️ Ошибка при чтении PDF: {e}"
+
+
+def set_awaiting_password(user_id: int, file_path: str):
+    awaiting_pdf_passwords[user_id] = file_path
+
+
+def get_awaiting_password_file(user_id: int) -> str | None:
+    return awaiting_pdf_passwords.get(user_id)
+
+
+def clear_awaiting_password(user_id: int):
+    awaiting_pdf_passwords.pop(user_id, None)
