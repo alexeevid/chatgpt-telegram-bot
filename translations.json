@@ -9,7 +9,7 @@
         "chat_description":"Chat with the bot!",
         "disallowed":"Sorry, you are not allowed to use this bot. You can check out the source code at https://github.com/alexeevid/chatgpt-telegram-bot",
         "budget_limit":"Sorry, you have reached your usage limit.",
-        "help_text":["Open source at https://github.com/alexeevid/chatgpt-telegram-bot"],
+        "help": "🤖 *Доступные команды:*\n/help — показать это сообщение\n/reset — сбросить текущий диалог\n/chat — задать вопрос в группах\n/image — сгенерировать изображение (если включено)\n/tts — озвучить текст (если включено)\n/analyze — проанализировать файл или документ\n/kb — выбрать документы из базы знаний\n/set_model — выбрать модель GPT\n/list_model — показать доступные модели\n/stats — статистика использования\n/resend — повторить последний ответ\n/balance — показать оставшийся бюджет",
         "stats_conversation":["Current conversation", "chat messages in history", "chat tokens in history"],
         "usage_today":"Usage today",
         "usage_month":"Usage this month",
