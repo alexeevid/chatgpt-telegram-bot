@@ -16,6 +16,7 @@ from bot.knowledge_base.vector_store import VectorStore
 from bot.knowledge_base.retriever import Retriever
 from bot.knowledge_base.yandex_client import YandexDiskClient
 from bot.knowledge_base.context_manager import ContextManager
+from bot.error_tracer import init_error_tracer, capture_exception
 
 from telegram.ext import Application  # добавлено
 from telegram import BotCommandScopeAllPrivateChats, BotCommandScopeAllGroupChats  # добавлено
@@ -32,6 +33,7 @@ def setup_logging():
 def load_configurations():
     # Загружаем переменные окружения из .env
     load_dotenv()
+    init_error_tracer()
 
     required_values = ['TELEGRAM_BOT_TOKEN', 'OPENAI_API_KEY']
     missing = [v for v in required_values if os.environ.get(v) is None]
@@ -54,7 +56,7 @@ def load_configurations():
         'max_tokens': int(os.environ.get('MAX_TOKENS', max_tok_def)),
         'n_choices': int(os.environ.get('N_CHOICES', 1)),
         'temperature': float(os.environ.get('TEMPERATURE', 1.0)),
-        'image_model': os.environ.get('IMAGE_MODEL', 'dall-e-2'),
+        'image_model': os.environ.get('IMAGE_MODEL', 'gpt-image-1'),
         'image_quality': os.environ.get('IMAGE_QUALITY', 'standard'),
         'image_style': os.environ.get('IMAGE_STYLE', 'vivid'),
         'image_size': os.environ.get('IMAGE_SIZE', '512x512'),
