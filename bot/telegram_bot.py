@@ -262,47 +262,60 @@ class ChatGPTTelegramBot:
     
     async def show_knowledge_base(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.warning(">>> Команда /kb вызвана")
-        try:
-            kb_root = os.getenv("YANDEX_ROOT_PATH", "/knowledge_base")
-            if kb_root.startswith("disk:"):
-                kb_root = kb_root[5:]
-            if not kb_root.startswith("/"):
-                kb_root = "/" + kb_root
-    
-            base_url = os.getenv("YANDEX_DISK_WEBDAV_URL", "https://webdav.yandex.ru").rstrip("/")
-            token = os.getenv("YANDEX_DISK_TOKEN", "").strip()
-    
-            if not token:
-                await update.message.reply_text("Не задан YANDEX_DISK_TOKEN")
-                return
-    
-            logging.debug("YD base_url=%s, root=%s, token_len=%d", base_url, kb_root, len(token))
-    
-            yd = YandexDiskClient(token=token, base_url=base_url)
-    
-            # Если команда с аргументом: /kb вопрос → поиск в индексе (если retriever уже есть)
-            text = update.message.text or ""
-            query = text.partition(' ')[2].strip()
-            if query and getattr(self, "retriever", None):
-                results = self.retriever.search(query, top_k=5)
-                if not results:
-                    await update.message.reply_text("Ничего не найдено.")
+            try:
+                kb_root = os.getenv("YANDEX_ROOT_PATH", "/knowledge_base")
+                if kb_root.startswith("disk:"):
+                    kb_root = kb_root[5:]
+                if not kb_root.startswith("/"):
+                    kb_root = "/" + kb_root
+        
+                base_url_raw = os.getenv("YANDEX_DISK_WEBDAV_URL", "https://webdav.yandex.ru")
+                base_url = base_url_raw.rstrip("/")
+        
+                token_raw = os.getenv("YANDEX_DISK_TOKEN", "").strip()
+                # ===== САНИТИЗАЦИЯ ТОКЕНА =====
+                token = token_raw.split(None, 1)[1].strip() if token_raw.lower().startswith("oauth ") else token_raw
+        
+                if not token:
+                    await update.message.reply_text("Не задан YANDEX_DISK_TOKEN")
                     return
-                reply = "Найдено:\n\n" + "\n\n---\n\n".join(results[:5])
-                await update.message.reply_text(reply[:4000])
-                return
-    
-            # иначе просто список файлов
-            files = [path for path, _ in yd.iter_files(kb_root)]
-            if not files:
-                await update.message.reply_text("В базе знаний нет файлов.")
-                return
-    
-            reply = "Файлы в базе знаний:\n" + "\n".join(f"- {p}" for p in files[:30])
-            if len(files) > 30:
-                reply += f"\n… и ещё {len(files) - 30}"
-    
-            await update.message.reply_text(reply)
+        
+                logging.debug("YD base_url=%s, root=%s, token_len=%d, token_has_oauth_prefix=%s",
+                              base_url, kb_root, len(token), token_raw.lower().startswith("oauth "))
+        
+                # ===== ПРЕФЛАЙТ через REST API (чтобы точно понять, что токен живой И в контейнере правильный) =====
+                try:
+                    r = requests.get(
+                        "https://cloud-api.yandex.net/v1/disk",
+                        headers={"Authorization": f"OAuth {token}"},
+                        timeout=10
+                    )
+                    if r.status_code == 401:
+                        logging.error("REST check failed: 401, body=%s", r.text)
+                        await update.message.reply_text("Токен Я.Диска отвергнут (REST 401). Проверь переменную YANDEX_DISK_TOKEN (без 'OAuth ').")
+                        return
+                    elif r.status_code >= 400:
+                        logging.error("REST check failed: %s, body=%s", r.status_code, r.text)
+                        await update.message.reply_text(f"REST check error {r.status_code}: {r.text[:200]}")
+                        return
+                except requests.exceptions.RequestException as e:
+                    logging.error("REST check network error: %s", e, exc_info=True)
+                    await update.message.reply_text("Не удалось проверить токен через REST API Я.Диска. Проверь сеть.")
+                    return
+        
+                # ===== Если REST прошёл — идём в WebDAV =====
+                yd = YandexDiskClient(token=token, base_url=base_url)
+                files = [path for path, _ in yd.iter_files(kb_root)]
+        
+                if not files:
+                    await update.message.reply_text("В базе знаний нет файлов.")
+                    return
+        
+                reply = "Файлы в базе знаний:\n" + "\n".join(f"- {p}" for p in files[:30])
+                if len(files) > 30:
+                    reply += f"\n… и ещё {len(files) - 30}"
+        
+                await update.message.reply_text(reply)
     
         except requests.exceptions.RequestException as e:
             logging.error("Сетевой сбой при обращении к Я.Диску: %s", e, exc_info=True)
