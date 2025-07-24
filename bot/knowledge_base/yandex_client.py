@@ -4,7 +4,6 @@ import requests
 from xml.etree import ElementTree as ET
 from urllib.parse import quote
 
-
 class YandexDiskClient:
     """Минималистичный WebDAV клиент для Яндекс.Диска."""
     def __init__(self, token: str, base_url: str = "https://webdav.yandex.ru"):
@@ -13,12 +12,10 @@ class YandexDiskClient:
         self.session.headers.update({"Authorization": f"OAuth {token}"})
 
     def _full(self, path: str) -> str:
-        # нормализуем "disk:" и начальный слэш
         if path.startswith("disk:"):
             path = path[5:]
         if not path.startswith("/"):
             path = "/" + path
-        # кодируем кириллицу/пробелы, но оставляем "/" как есть
         path = quote(path, safe="/")
         return f"{self.base_url}{path}"
 
