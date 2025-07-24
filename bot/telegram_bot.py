@@ -1,7 +1,5 @@
-# bot/telegram_bot.py
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 from typing import Optional, List
@@ -14,7 +12,6 @@ from telegram import (
     InputTextMessageContent,
 )
 from telegram.ext import (
-    ApplicationBuilder,
     Application,
     CommandHandler,
     MessageHandler,
@@ -25,7 +22,7 @@ from telegram.ext import (
 )
 
 from bot.openai_helper import OpenAIHelper, GPT_ALL_MODELS
-from bot.usage_tracker import UsageTracker  # если не используете — оставьте, не мешает
+from bot.usage_tracker import UsageTracker  # можно не использовать, параметр опциональный
 
 # База знаний
 from bot.knowledge_base.yandex_client import YandexDiskClient
@@ -37,7 +34,7 @@ from bot.knowledge_base.passwords import (
     get_pdf_password,
 )
 
-# Трассер ошибок (опционально, если добавили bot/error_tracer.py)
+# Трассер ошибок (если добавлен)
 try:
     from bot.error_tracer import capture_exception
 except Exception:  # pragma: no cover
@@ -59,10 +56,10 @@ class ChatGPTTelegramBot:
         self.retriever = retriever
 
     # ------------------------------------------------------------------
-    # Registration
+    # Регистрация хендлеров
     # ------------------------------------------------------------------
     def register_handlers(self, application: Application):
-        # 1) Commands
+        # 1) Команды
         application.add_handler(CommandHandler("start", self.help))
         application.add_handler(CommandHandler("help", self.help))
         application.add_handler(CommandHandler("reset", self.reset))
@@ -81,7 +78,7 @@ class ChatGPTTelegramBot:
 
         application.add_handler(CommandHandler("analyze", self.analyze_command))
 
-        # Callback для KB (если используешь inline-кнопки)
+        # Callback по KB (если используете inline-кнопки)
         application.add_handler(CallbackQueryHandler(self.handle_kb_selection, pattern=r"^kbselect"))
 
         # 2) Inline
@@ -96,22 +93,22 @@ class ChatGPTTelegramBot:
             )
         )
 
-        # 3) Files & media
+        # 3) Файлы и медиа
         application.add_handler(MessageHandler(filters.Document.ALL, self.handle_file_upload))
         application.add_handler(MessageHandler(filters.PHOTO, self.handle_photo))
         application.add_handler(MessageHandler(filters.AUDIO | filters.VOICE, self.handle_voice))
 
-        # 4) PDF passwords (text only, NOT commands) — must be before prompt
+        # 4) Пароли PDF — только текст, НЕ команды
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_password_input))
 
-        # 5) General text prompt — LAST
+        # 5) Общий текст (LLM-промпт) — в самом конце
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.prompt))
 
-        # 6) Errors
+        # 6) Глобальный обработчик ошибок
         application.add_error_handler(self.global_error_handler)
 
     # ------------------------------------------------------------------
-    # Commands
+    # Команды
     # ------------------------------------------------------------------
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
@@ -129,6 +126,20 @@ class ChatGPTTelegramBot:
         chat_id = update.effective_chat.id
         self.openai.reset_chat_history(chat_id)
         await update.message.reply_text("История диалога сброшена.")
+
+    async def pdf_pass_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Принудительный ввод пароля к конкретному PDF:
+        /pdfpass <имя_файла.pdf> <пароль>
+        """
+        text = (update.message.text or "").strip()
+        parts = text.split(maxsplit=2)
+        if len(parts) < 3:
+            await update.message.reply_text("Использование: /pdfpass <имя_файла.pdf> <пароль>")
+            return
+        filename, password = parts[1], parts[2]
+        store_pdf_password(filename, password)
+        await update.message.reply_text(f"Пароль для {filename} сохранён.")
 
     async def list_models(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         allowed: List[str] = self.config.get("allowed_models") or list(GPT_ALL_MODELS)
@@ -212,7 +223,7 @@ class ChatGPTTelegramBot:
                 base_url, kb_root, len(token), token_raw.lower().startswith("oauth ")
             )
 
-            # /kb <query> — поиск в RAG
+            # /kb <query> — поиск
             text = (update.message.text or "")
             query = text.partition(" ")[2].strip()
             if query and getattr(self, "retriever", None):
@@ -279,12 +290,11 @@ class ChatGPTTelegramBot:
         await update.message.reply_text("Команда /analyze не реализована подробно. Загрузите документ/фото — я его разберу.")
 
     # ------------------------------------------------------------------
-    # Content handlers
+    # Контент‑хендлеры
     # ------------------------------------------------------------------
     async def handle_password_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
-        Обработчик ввода пароля к PDF. Должен срабатывать только когда пароль ожидаем.
-        Если пароль не ждём — молча выходим.
+        Тихий обработчик ввода пароля к PDF. Не мешает командам.
         """
         text = (update.message.text or "").strip()
         if text.startswith("/"):
@@ -293,17 +303,16 @@ class ChatGPTTelegramBot:
         user_id = update.effective_user.id
         file_path = get_awaiting_password_file(user_id)
         if not file_path:
-            return  # молча: иначе ломаем /image, /kb и т.д.
+            return
 
-        # TODO: здесь должна быть функция реальной расшифровки PDF
+        # TODO: реальная расшифровка PDF
         result = f"(пример) Пароль '{text}' принят для файла {file_path}"
         clear_awaiting_password(user_id)
         await update.message.reply_text(f"🔓 Расшифрованный текст:\n\n{result[:4000]}")
 
     async def handle_file_upload(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
-        Анализ текстовых документов: вытащить текст -> отправить в модель.
-        Замените заглушку на свою функцию извлечения текста.
+        Анализ документов. Замените заглушку на своё извлечение текста.
         """
         try:
             doc = update.message.document
@@ -319,12 +328,10 @@ class ChatGPTTelegramBot:
             await update.message.reply_text(f"Ошибка при анализе документа: {e}")
 
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        Анализ фото через vision (interpret_image)
-        """
+        """Анализ фото через vision (interpret_image)"""
         try:
             chat_id = update.effective_chat.id
-            photo = update.message.photo[-1]  # largest
+            photo = update.message.photo[-1]
             file = await photo.get_file()
             file_bytes = await file.download_as_bytearray()
             import io
@@ -336,9 +343,7 @@ class ChatGPTTelegramBot:
             await update.message.reply_text(f"Ошибка анализа изображения: {e}")
 
     async def handle_voice(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        Транскрибация голосовых/аудио.
-        """
+        """Транскрибация голосовых/аудио."""
         try:
             voice = update.message.voice
             audio = update.message.audio
@@ -385,8 +390,5 @@ class ChatGPTTelegramBot:
         capture_exception(context.error)
         logging.error("Exception while handling an update:", exc_info=context.error)
 
-    # ------------------------------------------------------------------
-    # Run (не используется, мы запускаем из main.py)
-    # ------------------------------------------------------------------
     async def post_init(self, application: Application):
         pass
