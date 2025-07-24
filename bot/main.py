@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 
@@ -25,7 +24,8 @@ def setup_logging():
     )
 
 
-async def set_commands(application, enable_image: bool, enable_tts: bool):
+async def _post_init(application, bot: ChatGPTTelegramBot, enable_image: bool, enable_tts: bool):
+    """Выполняется внутри того же event loop, что и run_polling()."""
     commands = [
         BotCommand("start", "помощь"),
         BotCommand("help", "помощь"),
@@ -42,6 +42,7 @@ async def set_commands(application, enable_image: bool, enable_tts: bool):
         commands.append(BotCommand("tts", "синтез речи"))
 
     await application.bot.set_my_commands(commands)
+    await bot.post_init(application)
 
 
 def main():
@@ -92,19 +93,21 @@ def main():
 
     plugin_manager = PluginManager(config=plugin_config)
     openai_helper = OpenAIHelper(config=openai_config, plugin_manager=plugin_manager)
-
     bot = ChatGPTTelegramBot(config=telegram_config, openai_helper=openai_helper)
 
-    application = ApplicationBuilder().token(telegram_config["token"]).build()
+    async def post_init(application):
+        await _post_init(application, bot, telegram_config["enable_image_generation"], telegram_config["enable_tts_generation"])
+
+    application = (
+        ApplicationBuilder()
+        .token(telegram_config["token"])
+        .post_init(post_init)
+        .build()
+    )
+
     bot.register_handlers(application)
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(set_commands(application,
-                                         enable_image=telegram_config["enable_image_generation"],
-                                         enable_tts=telegram_config["enable_tts_generation"]))
-    loop.run_until_complete(bot.post_init(application))
-
+    # ВАЖНО: не создаём свои event loop’ы, просто:
     application.run_polling()
 
 
