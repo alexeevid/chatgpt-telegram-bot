@@ -127,6 +127,14 @@ class ChatGPTTelegramBot:
         self.openai.reset_chat_history(chat_id)
         await update.message.reply_text("История диалога сброшена.")
 
+    async def handle_kb_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Заглушка для обработчика inline-кнопок базы знаний."""
+        try:
+            await update.callback_query.answer("Функционал выбора из БЗ ещё не реализован.")
+        except Exception as e:
+            capture_exception(e)
+            logging.error("handle_kb_selection failed", exc_info=True)
+
     async def pdf_pass_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Принудительный ввод пароля к конкретному PDF:
