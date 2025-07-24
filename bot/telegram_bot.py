@@ -22,7 +22,7 @@ from telegram.ext import (
 )
 
 from bot.openai_helper import OpenAIHelper, GPT_ALL_MODELS
-from bot.usage_tracker import UsageTracker  # можно не использовать, параметр опциональный
+from bot.usage_tracker import UsageTracker  # можно не использовать
 
 # База знаний
 from bot.knowledge_base.yandex_client import YandexDiskClient
@@ -127,19 +127,7 @@ class ChatGPTTelegramBot:
         self.openai.reset_chat_history(chat_id)
         await update.message.reply_text("История диалога сброшена.")
 
-    async def handle_kb_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Заглушка для обработчика inline-кнопок базы знаний."""
-        try:
-            await update.callback_query.answer("Функционал выбора из БЗ ещё не реализован.")
-        except Exception as e:
-            capture_exception(e)
-            logging.error("handle_kb_selection failed", exc_info=True)
-
     async def pdf_pass_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        Принудительный ввод пароля к конкретному PDF:
-        /pdfpass <имя_файла.pdf> <пароль>
-        """
         text = (update.message.text or "").strip()
         parts = text.split(maxsplit=2)
         if len(parts) < 3:
@@ -294,6 +282,14 @@ class ChatGPTTelegramBot:
             logging.error("Ошибка при получении списка файлов из базы знаний", exc_info=True)
             await update.message.reply_text("Не удалось загрузить базу знаний. Проверь токен или путь")
 
+    async def handle_kb_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Заглушка для inline-кнопок KB, чтобы не было AttributeError."""
+        try:
+            await update.callback_query.answer("Функционал выбора из БЗ ещё не реализован.")
+        except Exception as e:
+            capture_exception(e)
+            logging.error("handle_kb_selection failed", exc_info=True)
+
     async def analyze_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Команда /analyze не реализована подробно. Загрузите документ/фото — я его разберу.")
 
@@ -301,9 +297,6 @@ class ChatGPTTelegramBot:
     # Контент‑хендлеры
     # ------------------------------------------------------------------
     async def handle_password_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        Тихий обработчик ввода пароля к PDF. Не мешает командам.
-        """
         text = (update.message.text or "").strip()
         if text.startswith("/"):
             return
@@ -319,9 +312,6 @@ class ChatGPTTelegramBot:
         await update.message.reply_text(f"🔓 Расшифрованный текст:\n\n{result[:4000]}")
 
     async def handle_file_upload(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        Анализ документов. Замените заглушку на своё извлечение текста.
-        """
         try:
             doc = update.message.document
             file = await doc.get_file()
@@ -336,7 +326,6 @@ class ChatGPTTelegramBot:
             await update.message.reply_text(f"Ошибка при анализе документа: {e}")
 
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Анализ фото через vision (interpret_image)"""
         try:
             chat_id = update.effective_chat.id
             photo = update.message.photo[-1]
@@ -351,7 +340,6 @@ class ChatGPTTelegramBot:
             await update.message.reply_text(f"Ошибка анализа изображения: {e}")
 
     async def handle_voice(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Транскрибация голосовых/аудио."""
         try:
             voice = update.message.voice
             audio = update.message.audio
