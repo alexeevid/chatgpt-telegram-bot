@@ -306,12 +306,9 @@ class ChatGPTTelegramBot:
                 await update.message.reply_text("В базе знаний нет файлов.")
                 return
 
-            reply = "Файлы в базе знаний:
-" + "
-".join(f"- {p}" for p in files[:30])
+            reply = "Файлы в базе знаний:\n" + "\n".join(f"- {p}" for p in files[:30])
             if len(files) > 30:
-                reply += f"
-… и ещё {len(files) - 30}"
+                reply += f"\n… и ещё {len(files) - 30}"
 
             await update.message.reply_text(reply)
 
