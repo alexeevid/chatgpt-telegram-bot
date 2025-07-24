@@ -25,8 +25,9 @@ from telegram.ext import (
 )
 
 from bot.openai_helper import OpenAIHelper, GPT_ALL_MODELS
-from bot.usage_tracker import UsageTracker
+from bot.usage_tracker import UsageTracker  # если не используете — оставьте, не мешает
 
+# База знаний
 from bot.knowledge_base.yandex_client import YandexDiskClient
 from bot.knowledge_base.passwords import (
     set_awaiting_password,
@@ -36,6 +37,7 @@ from bot.knowledge_base.passwords import (
     get_pdf_password,
 )
 
+# Трассер ошибок (опционально, если добавили bot/error_tracer.py)
 try:
     from bot.error_tracer import capture_exception
 except Exception:  # pragma: no cover
@@ -74,14 +76,12 @@ class ChatGPTTelegramBot:
         if self.config.get("enable_image_generation", False):
             application.add_handler(CommandHandler("image", self.image))
 
-        # optional TTS
         if self.config.get("enable_tts_generation", False):
             application.add_handler(CommandHandler("tts", self.tts))
 
-        # analyze command to force analyze last doc or prompt
         application.add_handler(CommandHandler("analyze", self.analyze_command))
 
-        # callback for KB (if you add inline kb UI)
+        # Callback для KB (если используешь inline-кнопки)
         application.add_handler(CallbackQueryHandler(self.handle_kb_selection, pattern=r"^kbselect"))
 
         # 2) Inline
@@ -101,7 +101,7 @@ class ChatGPTTelegramBot:
         application.add_handler(MessageHandler(filters.PHOTO, self.handle_photo))
         application.add_handler(MessageHandler(filters.AUDIO | filters.VOICE, self.handle_voice))
 
-        # 4) PDF passwords (text only, not commands) — must be before prompt
+        # 4) PDF passwords (text only, NOT commands) — must be before prompt
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_password_input))
 
         # 5) General text prompt — LAST
@@ -212,7 +212,7 @@ class ChatGPTTelegramBot:
                 base_url, kb_root, len(token), token_raw.lower().startswith("oauth ")
             )
 
-            # /kb <query> — поиск
+            # /kb <query> — поиск в RAG
             text = (update.message.text or "")
             query = text.partition(" ")[2].strip()
             if query and getattr(self, "retriever", None):
@@ -276,13 +276,16 @@ class ChatGPTTelegramBot:
             await update.message.reply_text("Не удалось загрузить базу знаний. Проверь токен или путь")
 
     async def analyze_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # простая заглушка, если хочешь анализировать последний загруженный файл
-        await update.message.reply_text("Команда /analyze не реализована подробно. Загружайте документ, и я его разберу.")
+        await update.message.reply_text("Команда /analyze не реализована подробно. Загрузите документ/фото — я его разберу.")
 
     # ------------------------------------------------------------------
     # Content handlers
     # ------------------------------------------------------------------
     async def handle_password_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Обработчик ввода пароля к PDF. Должен срабатывать только когда пароль ожидаем.
+        Если пароль не ждём — молча выходим.
+        """
         text = (update.message.text or "").strip()
         if text.startswith("/"):
             return
@@ -290,9 +293,9 @@ class ChatGPTTelegramBot:
         user_id = update.effective_user.id
         file_path = get_awaiting_password_file(user_id)
         if not file_path:
-            return  # молча: иначе мешаем /image и др.
+            return  # молча: иначе ломаем /image, /kb и т.д.
 
-        # TODO: подключи свою функцию реального извлечения текста
+        # TODO: здесь должна быть функция реальной расшифровки PDF
         result = f"(пример) Пароль '{text}' принят для файла {file_path}"
         clear_awaiting_password(user_id)
         await update.message.reply_text(f"🔓 Расшифрованный текст:\n\n{result[:4000]}")
@@ -300,15 +303,13 @@ class ChatGPTTelegramBot:
     async def handle_file_upload(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Анализ текстовых документов: вытащить текст -> отправить в модель.
+        Замените заглушку на свою функцию извлечения текста.
         """
         try:
             doc = update.message.document
             file = await doc.get_file()
             file_bytes = await file.download_as_bytearray()
 
-            # тут используй свою функцию распаковки/извлечения текста
-            # например extract_text(file_bytes) если у тебя такое есть
-            # ниже — заглушка:
             text = f"Документ {doc.file_name} ({doc.file_size} bytes) получен. (Тут сделай извлечение текста)"
             chat_id = update.effective_chat.id
             answer, _ = await self.openai.get_chat_response(chat_id, f"Проанализируй документ:\n{text}")
@@ -326,7 +327,6 @@ class ChatGPTTelegramBot:
             photo = update.message.photo[-1]  # largest
             file = await photo.get_file()
             file_bytes = await file.download_as_bytearray()
-            # interpret_image ожидает байты файла (io.BytesIO или bytes)
             import io
             bio = io.BytesIO(file_bytes)
             answer, _ = await self.openai.interpret_image(chat_id, bio)
@@ -351,7 +351,7 @@ class ChatGPTTelegramBot:
                 return
 
             local_path = await file.download_to_drive()
-            text = await self.openai.transcribe(local_path.name)
+            text = await self.openai.transcribe(str(local_path))
             await update.message.reply_text(f"🗣️ Распознал:\n{text[:4000]}")
         except Exception as e:
             capture_exception(e)
@@ -386,17 +386,7 @@ class ChatGPTTelegramBot:
         logging.error("Exception while handling an update:", exc_info=context.error)
 
     # ------------------------------------------------------------------
-    # Run
+    # Run (не используется, мы запускаем из main.py)
     # ------------------------------------------------------------------
     async def post_init(self, application: Application):
         pass
-
-    def run(self):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        application = ApplicationBuilder().token(self.config["token"]).build()
-        self.register_handlers(application)
-
-        loop.run_until_complete(self.post_init(application))
-        application.run_polling()
