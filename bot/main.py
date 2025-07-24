@@ -1,166 +1,123 @@
-#!/usr/bin/env python3
-
+# bot/main.py
+import asyncio
 import logging
 import os
-import asyncio
+
 from dotenv import load_dotenv
+from telegram import BotCommand
+from telegram.ext import ApplicationBuilder
 
-from bot.plugin_manager import PluginManager
-from bot.openai_helper import OpenAIHelper, default_max_tokens, are_functions_available
 from bot.telegram_bot import ChatGPTTelegramBot
-from bot.db import engine, Base
+from bot.openai_helper import OpenAIHelper
+from bot.plugin_manager import PluginManager
 
-# KB / RAG imports
-from bot.knowledge_base.embedder import Embedder
-from bot.knowledge_base.vector_store import VectorStore
-from bot.knowledge_base.retriever import Retriever
-from bot.knowledge_base.yandex_client import YandexDiskClient
-from bot.knowledge_base.context_manager import ContextManager
-from bot.error_tracer import init_error_tracer, capture_exception
+# Если добавили трассер
+try:
+    from bot.error_tracer import init_error_tracer
+except Exception:  # pragma: no cover
+    def init_error_tracer():
+        logging.info("Sentry not configured or not installed")
 
-from telegram.ext import Application  # добавлено
-from telegram import BotCommandScopeAllPrivateChats, BotCommandScopeAllGroupChats  # добавлено
 
 def setup_logging():
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.INFO
+        level=log_level,
+        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     )
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    # Уровень логирования SQLAlchemy уменьшен до WARN, чтобы убрать подробные INFO-запросы
-    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-
-def load_configurations():
-    # Загружаем переменные окружения из .env
-    load_dotenv()
-    init_error_tracer()
-
-    required_values = ['TELEGRAM_BOT_TOKEN', 'OPENAI_API_KEY']
-    missing = [v for v in required_values if os.environ.get(v) is None]
-    if missing:
-        logging.error(f'Missing in .env: {", ".join(missing)}')
-        exit(1)
-
-    model = os.environ.get('OPENAI_MODEL', 'gpt-4o')
-    funcs_avail = are_functions_available(model=model)
-    max_tok_def = default_max_tokens(model=model)
-
-    openai_config = {
-        'api_key': os.environ['OPENAI_API_KEY'],
-        'show_usage': os.environ.get('SHOW_USAGE', 'false').lower() == 'true',
-        'stream': os.environ.get('STREAM', 'true').lower() == 'true',
-        'proxy': os.environ.get('PROXY') or os.environ.get('OPENAI_PROXY'),
-        'max_history_size': int(os.environ.get('MAX_HISTORY_SIZE', 15)),
-        'max_conversation_age_minutes': int(os.environ.get('MAX_CONVERSATION_AGE_MINUTES', 180)),
-        'assistant_prompt': os.environ.get('ASSISTANT_PROMPT', 'You are a helpful assistant.'),
-        'max_tokens': int(os.environ.get('MAX_TOKENS', max_tok_def)),
-        'n_choices': int(os.environ.get('N_CHOICES', 1)),
-        'temperature': float(os.environ.get('TEMPERATURE', 1.0)),
-        'image_model': os.environ.get('IMAGE_MODEL', 'gpt-image-1'),
-        'image_quality': os.environ.get('IMAGE_QUALITY', 'standard'),
-        'image_style': os.environ.get('IMAGE_STYLE', 'vivid'),
-        'image_size': os.environ.get('IMAGE_SIZE', '512x512'),
-        'model': model,
-        'enable_functions': os.environ.get('ENABLE_FUNCTIONS', str(funcs_avail)).lower() == 'true',
-        'functions_max_consecutive_calls': int(os.environ.get('FUNCTIONS_MAX_CONSECUTIVE_CALLS', 10)),
-        'presence_penalty': float(os.environ.get('PRESENCE_PENALTY', 0.0)),
-        'frequency_penalty': float(os.environ.get('FREQUENCY_PENALTY', 0.0)),
-        'bot_language': os.environ.get('BOT_LANGUAGE', 'en'),
-        'show_plugins_used': os.environ.get('SHOW_PLUGINS_USED', 'false').lower() == 'true',
-        'whisper_prompt': os.environ.get('WHISPER_PROMPT', ''),
-        'vision_model': os.environ.get('VISION_MODEL', 'gpt-4o'),
-        'enable_vision_follow_up_questions': os.environ.get('ENABLE_VISION_FOLLOW_UP_QUESTIONS', 'true').lower() == 'true',
-        'vision_prompt': os.environ.get('VISION_PROMPT', 'What is in this image'),
-        'vision_detail': os.environ.get('VISION_DETAIL', 'auto'),
-        'vision_max_tokens': int(os.environ.get('VISION_MAX_TOKENS', '300')),
-        'tts_model': os.environ.get('TTS_MODEL', 'tts-1'),
-        'tts_voice': os.environ.get('TTS_VOICE', 'alloy'),
-    }
-
-    if openai_config['enable_functions'] and not funcs_avail:
-        logging.error(f'ENABLE_FUNCTIONS true but model {model} does not support.')
-        exit(1)
-
-    telegram_config = {
-        'token': os.environ['TELEGRAM_BOT_TOKEN'],
-        'admin_user_ids': os.environ.get('ADMIN_USER_IDS', '-'),
-        'allowed_user_ids': os.environ.get('ALLOWED_TELEGRAM_USER_IDS', '*'),
-        'enable_quoting': os.environ.get('ENABLE_QUOTING', 'true').lower() == 'true',
-        'enable_image_generation': os.environ.get('ENABLE_IMAGE_GENERATION', 'true').lower() == 'true',
-        'enable_transcription': os.environ.get('ENABLE_TRANSCRIPTION', 'true').lower() == 'true',
-        'enable_vision': os.environ.get('ENABLE_VISION', 'true').lower() == 'true',
-        'enable_tts_generation': os.environ.get('ENABLE_TTS_GENERATION', 'true').lower() == 'true',
-        'budget_period': os.environ.get('BUDGET_PERIOD', 'monthly').lower(),
-        'user_budgets': os.environ.get('USER_BUDGETS', '*'),
-        'guest_budget': float(os.environ.get('GUEST_BUDGET', '100.0')),
-        'stream': os.environ.get('STREAM', 'true').lower() == 'true',
-        'proxy': os.environ.get('PROXY') or os.environ.get('TELEGRAM_PROXY'),
-        'voice_reply_transcript': os.environ.get('VOICE_REPLY_WITH_TRANSCRIPT_ONLY', 'false').lower() == 'true',
-        'voice_reply_prompts': os.environ.get('VOICE_REPLY_PROMPTS', '').split(';'),
-        'ignore_group_transcriptions': os.environ.get('IGNORE_GROUP_TRANSCRIPTIONS', 'true').lower() == 'true',
-        'ignore_group_vision': os.environ.get('IGNORE_GROUP_VISION', 'true').lower() == 'true',
-        'group_trigger_keyword': os.environ.get('GROUP_TRIGGER_KEYWORD', ''),
-        'token_price': float(os.environ.get('TOKEN_PRICE', 0.002)),
-        'image_prices': [float(i) for i in os.environ.get('IMAGE_PRICES', "0.016,0.018,0.02").split(",")],
-        'vision_token_price': float(os.environ.get('VISION_TOKEN_PRICE', '0.01')),
-        'image_receive_mode': os.environ.get('IMAGE_FORMAT', "photo"),
-        'tts_prices': [float(i) for i in os.environ.get('TTS_PRICES', "0.015,0.030").split(",")],
-        'transcription_price': float(os.environ.get('TRANSCRIPTION_PRICE', 0.006)),
-        'bot_language': os.environ.get('BOT_LANGUAGE', 'en'),
-        'version': os.environ.get('BOT_VERSION', 'v1.0.0'),
-    }
-
-    plugin_config = {
-        'plugins': os.environ.get('PLUGINS', '').split(',')
-    }
-
-    return openai_config, telegram_config, plugin_config
 
 
-async def init_models():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+async def set_commands(application, enable_image: bool, enable_tts: bool):
+    commands = [
+        BotCommand("start", "помощь"),
+        BotCommand("help", "помощь"),
+        BotCommand("reset", "сброс диалога"),
+        BotCommand("kb", "база знаний / поиск"),
+        BotCommand("pdfpass", "ввести пароль к PDF"),
+        BotCommand("list_models", "показать модели"),
+        BotCommand("set_model", "выбрать модель"),
+        BotCommand("analyze", "проанализировать последний документ/фото"),
+    ]
+    if enable_image:
+        commands.append(BotCommand("image", "сгенерировать изображение"))
+    if enable_tts:
+        commands.append(BotCommand("tts", "синтез речи"))
+
+    await application.bot.set_my_commands(commands)
 
 
 def main():
+    load_dotenv()
     setup_logging()
-    openai_config, telegram_config, plugin_config = load_configurations()
+    init_error_tracer()
 
-    # Инициализируем БД и проверяем соединение
-    asyncio.run(init_models())
+    # ------- OpenAI / Plugins config -------
+    openai_config = {
+        "api_key": os.environ["OPENAI_API_KEY"],
+        "model": os.environ.get("OPENAI_MODEL", "gpt-4o"),
+        "vision_model": os.environ.get("VISION_MODEL", "gpt-4o"),
+        "image_model": os.environ.get("IMAGE_MODEL", "gpt-image-1"),
+        "image_size": os.environ.get("IMAGE_SIZE", "1024x1024"),
+        "tts_model": os.environ.get("TTS_MODEL", "gpt-4o-mini-tts"),
+        "tts_voice": os.environ.get("TTS_VOICE", "alloy"),
+        "temperature": float(os.environ.get("OPENAI_TEMPERATURE", "0.7")),
+        "n_choices": int(os.environ.get("N_CHOICES", "1")),
+        "max_tokens": int(os.environ.get("MAX_TOKENS", "1024")),
+        "presence_penalty": float(os.environ.get("PRESENCE_PENALTY", "0")),
+        "frequency_penalty": float(os.environ.get("FREQUENCY_PENALTY", "0")),
+        "assistant_prompt": os.environ.get("ASSISTANT_PROMPT", "You are a helpful assistant."),
+        "max_history_size": int(os.environ.get("MAX_HISTORY_SIZE", "20")),
+        "max_conversation_age_minutes": int(os.environ.get("MAX_CONVERSATION_AGE", "60")),
+        "enable_functions": os.environ.get("ENABLE_FUNCTIONS", "false").lower() == "true",
+        "show_usage": os.environ.get("SHOW_USAGE", "true").lower() == "true",
+        "show_plugins_used": os.environ.get("SHOW_PLUGINS_USED", "false").lower() == "true",
+        "enable_vision_follow_up_questions": os.environ.get("VISION_FOLLOWUP", "false").lower() == "true",
+        "vision_max_tokens": int(os.environ.get("VISION_MAX_TOKENS", "1024")),
+        "vision_prompt": os.environ.get("VISION_PROMPT", "Опиши, что на изображении."),
+        "vision_detail": os.environ.get("VISION_DETAIL", "auto"),
+        "whisper_prompt": os.environ.get("WHISPER_PROMPT", ""),
+        "bot_language": os.environ.get("BOT_LANGUAGE", "ru"),
+        "proxy": os.environ.get("PROXY", None),
+        "enable_image_generation": os.environ.get("ENABLE_IMAGE_GENERATION", "true").lower() == "true",
+        "enable_tts_generation": os.environ.get("ENABLE_TTS_GENERATION", "false").lower() == "true",
+        "functions_max_consecutive_calls": int(os.environ.get("FUNCTIONS_MAX_CONSECUTIVE_CALLS", "3")),
+    }
+
+    plugin_config = {
+        # добавьте настройки плагинов, если используете
+    }
+
+    telegram_config = {
+        "token": os.environ["TELEGRAM_BOT_TOKEN"],
+        "enable_image_generation": openai_config["enable_image_generation"],
+        "enable_tts_generation": openai_config["enable_tts_generation"],
+        "allowed_models": os.environ.get("ALLOWED_MODELS", "").split(",") if os.environ.get("ALLOWED_MODELS") else None,
+    }
 
     plugin_manager = PluginManager(config=plugin_config)
     openai_helper = OpenAIHelper(config=openai_config, plugin_manager=plugin_manager)
-    bot = ChatGPTTelegramBot(config=telegram_config,
-        openai_helper=openai_helper)
 
-    async def set_commands():
-        app = Application.builder().token(telegram_config["token"]).build()
+    bot = ChatGPTTelegramBot(config=telegram_config, openai_helper=openai_helper)
 
-        await app.bot.set_my_commands(
-            commands=bot.commands,
-            scope=BotCommandScopeAllPrivateChats(),
-            language_code=telegram_config["bot_language"]
-        )
+    # Собираем PTB-приложение здесь, чтобы выставить команды до run_polling
+    application = ApplicationBuilder().token(telegram_config["token"]).build()
 
-        await app.bot.set_my_commands(
-            commands=bot.group_commands,
-            scope=BotCommandScopeAllGroupChats(),
-            language_code=telegram_config["bot_language"]
-        )
+    # Регистрируем хендлеры бота
+    bot.register_handlers(application)
 
-    asyncio.run(set_commands())
+    # Устанавливаем команды
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(set_commands(application,
+                                         enable_image=telegram_config["enable_image_generation"],
+                                         enable_tts=telegram_config["enable_tts_generation"]))
 
-    # Добавим запуск самого бота после установки команд
-    bot.run()
+    # post_init (если что-то нужно)
+    loop.run_until_complete(bot.post_init(application))
 
-if __name__ == '__main__':
+    # Стартуем
+    application.run_polling()
+
+
+if __name__ == "__main__":
     main()
-
-
-# --- KB commands placeholders ---
-# Add handlers in your telegram dispatcher:
-# /reset -> context_manager.reset(chat_id)
-# /reindex -> trigger reindex coroutine
-# /kb <query> -> retriever.search(query)
-# /pdfpass <filename> <password> -> store password for that file in session
