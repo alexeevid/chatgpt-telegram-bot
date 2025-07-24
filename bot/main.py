@@ -131,7 +131,12 @@ def main():
 
     plugin_manager = PluginManager(config=plugin_config)
     openai_helper = OpenAIHelper(config=openai_config, plugin_manager=plugin_manager)
-    bot = ChatGPTTelegramBot(config=telegram_config, openai=openai_helper)
+    bot = ChatGPTTelegramBot(
+        config=telegram_config,
+        openai_helper=openai_helper,
+        usage_tracker=usage_tracker,   # если он у вас есть
+        retriever=retriever            # если вы его создаёте
+    )
 
     async def set_commands():
         app = Application.builder().token(telegram_config["token"]).build()
